@@ -21,36 +21,38 @@ import pandas as pd
 import geopandas as gpd
 
 
-# Keep a subset of columns for simulations
-OUTPUT_COLUMNS: list[str] = [
-    "PID",
-    "CM_ID",
-    "NUM_BLDGS",
-    "LUC",
-    "LU",
-    "BLDG_TYPE",
-    "RES_FLOOR",
-    "CD_FLOOR",
-    "RES_UNITS",
-    "TT_RMS",
-    "BED_RMS",
-    "FULL_BTH",
-    "HLF_BTH",
-    "KITCHENS",
-    "OVERALL_COND",
-    "INT_COND",
-    "EXT_COND",
-    "NUM_PARKING",
-    "STRUCTURE_CLASS",
-    "YR_REMODEL",
-    "YR_BUILT",
-    "LAND_VALUE",
-    "BLDG_VALUE",
-    "TOTAL_VALUE",
-    "LAND_SF",
-    "GROSS_AREA",
-    "LIVING_AREA",
-]
+# Map source assessor columns to final cleaned output names.
+OUTPUT_COLUMN_MAP: dict[str, str] = {
+    "PID": "PID",
+    "CM_ID": "CONDO_ID",
+    "NUM_BLDGS": "NUM_BLDGS",
+    "LU": "LU",
+    "LU_DESC": "LU_DESC",
+    "BLDG_TYPE": "BLDG_TYPE",
+    "RES_FLOOR": "RES_FLOOR",
+    "RES_UNITS": "CONDO_RES_UNITS",
+    "TT_RMS": "TT_RMS",
+    "BED_RMS": "BED_RMS",
+    "FULL_BTH": "FULL_BTH",
+    "HLF_BTH": "HLF_BTH",
+    "KITCHENS": "KITCHENS",
+    "OVERALL_COND": "OVERALL_COND",
+    "INT_COND": "INT_COND",
+    "EXT_COND": "EXT_COND",
+    "NUM_PARKING": "NUM_PARKING",
+    "STRUCTURE_CLASS": "STRUCTURE_CLASS",
+    "YR_REMODEL": "YR_REMODEL",
+    "YR_BUILT": "YR_BUILT",
+    "LAND_VALUE": "LAND_VALUE",
+    "BLDG_VALUE": "BLDG_VALUE",
+    "TOTAL_VALUE": "TOTAL_VALUE",
+    "LAND_SF": "LAND_SF",
+    "GROSS_AREA": "GROSS_AREA",
+    "LIVING_AREA": "LIVING_AREA",
+}
+
+SOURCE_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.keys())
+OUTPUT_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.values())
 
 CONDO_LU_CODES = {"CD", "CP", "CC", "CM"}
 
@@ -74,9 +76,7 @@ SUM_COLUMNS = {
 MAX_COLUMNS = {
     "CM_ID",
     "NUM_BLDGS",
-    "LUC",
     "RES_FLOOR",
-    "CD_FLOOR",
     "LAND_SF",
     "YR_BUILT",
     "YR_REMODEL",
@@ -170,7 +170,7 @@ def main() -> None:
 
     print("Preparing columns for aggregation...")
     output_source_columns = [
-        col for col in OUTPUT_COLUMNS if col != "PID" and col in matched.columns
+        col for col in SOURCE_COLUMNS if col != "PID" and col in matched.columns
     ]
 
     # Restrict numeric parsing to columns that are explicitly numeric in the cleaned schema.
@@ -222,6 +222,13 @@ def main() -> None:
     )
 
     result["PID"] = result["_parcel_key"]
+
+    rename_map = {
+        source_col: output_col
+        for source_col, output_col in OUTPUT_COLUMN_MAP.items()
+        if source_col != output_col
+    }
+    result = result.rename(columns=rename_map)
 
     # Emit only the requested final schema in the requested order.
     for column_name in OUTPUT_COLUMNS:
