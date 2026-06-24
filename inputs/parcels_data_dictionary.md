@@ -1,12 +1,4 @@
-# Boston Property Assessment Data Dictionary
-
-Source: City of Boston, Property Assessment FY2025 Data Key
-
-- Dataset page: https://data.boston.gov/dataset/property-assessment/resource/96b6cf8b-04f2-4b87-b78f-ba9a0ddd1573
-- Data key (PDF): https://data.boston.gov/dataset/e02c44d2-3c64-459c-8fe2-e1ce5f38a035/resource/96b6cf8b-04f2-4b87-b78f-ba9a0ddd1573/download/property-assessment-fy2025-data-key.pdf
-
-This dictionary documents the fields used by this project after assessor cleaning.
-Descriptions are aligned to the Boston FY2025 data key naming and definitions.
+# Parcels Data Dictionary
 
 | Project column | Source column | Description |
 | --- | --- | --- |
@@ -45,8 +37,3 @@ Descriptions are aligned to the Boston FY2025 data key naming and definitions.
 | rear_setback | Rear_Setba | Minimum required rear setback from the lot line in the intersecting zoning subdistrict. |
 | max_dua | Max_Dwelli | Maximum dwelling units per area metric allowed by zoning (as provided by source field). |
 | max_floors | Max_Number | Maximum number of stories/floors allowed by zoning for the intersecting subdistrict. |
-
-## Notes
-
-- The source table includes additional fields not used in the cleaned project output.
-- For coded fields (for example LU, BLDG_TYPE, condition/style fields), code legends and occupancy references are published alongside the main data key on Analyze Boston.
