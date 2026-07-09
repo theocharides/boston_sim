@@ -1,15 +1,21 @@
-"""
-Collapses assessor account rows to one record per parcel geometry. 
-Normalizes parcel columns and cleans and subset columns to a final schema.
+"""Builds a parcel-level CSV with assessor, geometry, and zoning attributes.
 
-Converts the assessor table from account-level records (including
+This script converts the assessor table from account-level records (including
 condo units) to parcel-level records. Condo/unit PIDs that do not directly
 match a parcel polygon are mapped to a base parcel PID (first 7 digits + 000)
 when possible, then all rows are aggregated to one row per parcel.
 
-The final output is guaranteed to have one row per parcel geometry by joining
-aggregated assessor attributes onto the full parcel geometry key list, and
-includes parcel geometry in WKT format.
+The final output has one row per parcel geometry, includes parcel geometry in
+WKT format, and appends zoning attributes from a parcel-to-zoning spatial join.
+
+The script also performs cleaning and normalization of assessor fields.
+
+scripts/clean_parcels.py read is:
+- `boston_parcel_assesors.csv`
+- `boston_parcel_shapes.geojson`
+- `boston_zoning_subdistricts/`
+to create:
+- `inputs/parcels.csv`
 """
 
 from __future__ import annotations
@@ -52,8 +58,23 @@ OUTPUT_COLUMN_MAP: dict[str, str] = {
     "LIVING_AREA": "LIVING_AREA",
 }
 
+ZONING_COLUMN_MAP: dict[str, str] = {
+    "Zoning_Sub": "zoning_use",
+    "Max_FAR": "max_far",
+    "Max_Height": "max_height",
+    "Front_Setb": "front_setback",
+    "Side_Setba": "side_setback",
+    "Rear_Setba": "rear_setback",
+    "Max_Dwelli": "max_dua",
+    "Max_Number": "max_floors",
+}
+
 SOURCE_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.keys())
-OUTPUT_COLUMNS: list[str] = [*OUTPUT_COLUMN_MAP.values(), "geometry"]
+OUTPUT_COLUMNS: list[str] = [
+    *OUTPUT_COLUMN_MAP.values(),
+    *ZONING_COLUMN_MAP.values(),
+    "geometry",
+]
 
 CONDO_LU_CODES = {"CD", "CP", "CC", "CM"}
 
@@ -132,6 +153,15 @@ def parse_args() -> argparse.Namespace:
         help="Path to parcel polygon file.",
     )
     parser.add_argument(
+        "--zoning-shapefile",
+        type=Path,
+        default=repo_root
+        / "data"
+        / "boston_zoning_subdistricts"
+        / "Boston_Zoning_Subdistricts.shp",
+        help="Path to zoning subdistrict shapefile.",
+    )
+    parser.add_argument(
         "--output-csv",
         type=Path,
         default=repo_root / "inputs" / "parcels.csv",
@@ -141,6 +171,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.assessors_csv = require_existing_path(args.assessors_csv, "Assessors CSV")
     args.parcel_shapes = require_existing_path(args.parcel_shapes, "Parcel shapes file")
+    args.zoning_shapefile = require_existing_path(args.zoning_shapefile, "Zoning shapefile")
     args.output_csv = args.output_csv.expanduser().resolve()
     return args
 
@@ -216,7 +247,7 @@ def main() -> None:
         collapsed = grouped.size().rename("_unused").reset_index()[["_parcel_key"]]
 
     print("Joining to full parcel key list to guarantee row parity with geometry...")
-    result = parcels[["_parcel_key", "MAP_PAR_ID"]].merge(
+    result = parcels[["_parcel_key", "MAP_PAR_ID", "geometry"]].merge(
         collapsed,
         on="_parcel_key",
         how="left",
@@ -230,6 +261,35 @@ def main() -> None:
         if source_col != output_col
     }
     result = result.rename(columns=rename_map)
+
+    print(f"Reading zoning shapefile: {args.zoning_shapefile}")
+    zoning = gpd.read_file(args.zoning_shapefile, columns=[*ZONING_COLUMN_MAP.keys(), "geometry"])
+    zoning = zoning[[*ZONING_COLUMN_MAP.keys(), "geometry"]].rename(columns=ZONING_COLUMN_MAP)
+
+    result_geo = gpd.GeoDataFrame(result.copy(), geometry="geometry", crs=parcels.crs)
+    if result_geo.crs != zoning.crs:
+        zoning = zoning.to_crs(result_geo.crs)
+
+    valid_geoms = result_geo.geometry.notna()
+    result_with_geom = result_geo.loc[valid_geoms, ["_parcel_key", "geometry"]].copy()
+
+    print("Joining zoning attributes by parcel geometry...")
+    joined = gpd.sjoin(
+        result_with_geom,
+        zoning,
+        how="left",
+        predicate="intersects",
+    )
+    if "index_right" in joined.columns:
+        joined = joined.drop(columns=["index_right"])
+
+    zoning_out_cols = list(ZONING_COLUMN_MAP.values())
+    zoning_by_parcel = (
+        joined[["_parcel_key", *zoning_out_cols]]
+        .sort_values(by=["_parcel_key"])
+        .drop_duplicates(subset=["_parcel_key"], keep="first")
+    )
+    result = result.merge(zoning_by_parcel, on="_parcel_key", how="left")
 
     # Store geometry as WKT so parcel geometry is retained in a plain CSV.
     result["geometry"] = result["geometry"].map(
@@ -249,6 +309,7 @@ def main() -> None:
     print(f"Unique parcel keys in geometry: {parcels['_parcel_key'].nunique():,}")
     print(f"Matched assessor rows used: {len(matched):,}")
     print(f"Unmatched assessor rows dropped: {len(assessors) - len(matched):,}")
+    print(f"Rows with zoning match: {result['zoning_use'].notna().sum():,}")
     print(f"Output: {args.output_csv}")
 
 
