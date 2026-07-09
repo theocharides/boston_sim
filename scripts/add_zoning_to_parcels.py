@@ -4,8 +4,8 @@ rename columns to simplified names.
 
 This script reads the assessor CSV, joins parcel geometries from the parcel
 GeoJSON using normalized parcel IDs, then performs a spatial join against the
-Boston zoning subdistrict shapefile. It writes both a tabular CSV and a
-spatial GeoJSON output.
+Boston zoning subdistrict shapefile. It writes a tabular CSV and can
+optionally write a spatial GeoJSON output.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--assessors-csv",
         type=Path,
-        default=data_dir / "boston_parcel_assessors_cleaned.csv",
+        default=repo_root / "inputs" / "parcels.csv",
         help="Path to assessor CSV.",
     )
     parser.add_argument(
@@ -66,8 +66,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-spatial",
         type=Path,
-        default=repo_root / "data" / "parcels_spatial.geojson",
-        help="Output spatial file path (GeoJSON).",
+        default=None,
+        help="Optional output spatial file path (GeoJSON).",
     )
     parser.add_argument(
         "--sample-size",
@@ -81,7 +81,8 @@ def parse_args() -> argparse.Namespace:
     args.parcel_shapes = require_existing_path(args.parcel_shapes, "Parcel shapes file")
     args.zoning_shapefile = require_existing_path(args.zoning_shapefile, "Zoning shapefile")
     args.output_csv = args.output_csv.expanduser().resolve()
-    args.output_spatial = args.output_spatial.expanduser().resolve()
+    if args.output_spatial is not None:
+        args.output_spatial = args.output_spatial.expanduser().resolve()
     return args
 
 
@@ -158,9 +159,10 @@ def main() -> None:
     spatial_result = gpd.GeoDataFrame(spatial_result, geometry="geometry", crs=assessors_geo.crs)
 
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
-    args.output_spatial.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(args.output_csv, index=False)
-    spatial_result.to_file(args.output_spatial, driver="GeoJSON")
+    if args.output_spatial is not None:
+        args.output_spatial.parent.mkdir(parents=True, exist_ok=True)
+        spatial_result.to_file(args.output_spatial, driver="GeoJSON")
 
     matched_geom = valid_geoms.sum()
     with_zoning = result["zoning_use"].notna().sum()
@@ -168,7 +170,8 @@ def main() -> None:
     print(f"Rows with parcel geometry: {matched_geom:,}")
     print(f"Rows with zoning match: {with_zoning:,}")
     print(f"CSV output: {args.output_csv}")
-    print(f"Spatial output: {args.output_spatial}")
+    if args.output_spatial is not None:
+        print(f"Spatial output: {args.output_spatial}")
 
 
 if __name__ == "__main__":

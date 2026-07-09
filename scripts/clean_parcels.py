@@ -1,14 +1,15 @@
 """
-Collapse assessor account rows to one record per parcel geometry and
-subset data to relevant columns.
+Collapses assessor account rows to one record per parcel geometry. 
+Normalizes parcel columns and cleans and subset columns to a final schema.
 
-This script converts the assessor table from account-level records (including
+Converts the assessor table from account-level records (including
 condo units) to parcel-level records. Condo/unit PIDs that do not directly
 match a parcel polygon are mapped to a base parcel PID (first 7 digits + 000)
 when possible, then all rows are aggregated to one row per parcel.
 
 The final output is guaranteed to have one row per parcel geometry by joining
-aggregated assessor attributes onto the full parcel geometry key list.
+aggregated assessor attributes onto the full parcel geometry key list, and
+includes parcel geometry in WKT format.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ OUTPUT_COLUMN_MAP: dict[str, str] = {
 }
 
 SOURCE_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.keys())
-OUTPUT_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.values())
+OUTPUT_COLUMNS: list[str] = [*OUTPUT_COLUMN_MAP.values(), "geometry"]
 
 CONDO_LU_CODES = {"CD", "CP", "CC", "CM"}
 
@@ -133,7 +134,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "data" / "boston_parcel_assessors_cleaned.csv",
+        default=repo_root / "inputs" / "parcels.csv",
         help="Output CSV path.",
     )
 
@@ -229,6 +230,11 @@ def main() -> None:
         if source_col != output_col
     }
     result = result.rename(columns=rename_map)
+
+    # Store geometry as WKT so parcel geometry is retained in a plain CSV.
+    result["geometry"] = result["geometry"].map(
+        lambda geom: geom.wkt if getattr(geom, "wkt", None) is not None else pd.NA
+    )
 
     # Emit only the requested final schema in the requested order.
     for column_name in OUTPUT_COLUMNS:
