@@ -22,6 +22,7 @@ from modeling_common import (
     available_features,
     infer_feature_types,
     require_existing_path,
+    subset_residential_rows,
 )
 
 
@@ -31,6 +32,9 @@ def main() -> None:
     
     print(f"Reading: {parcel_path}")
     df = pd.read_csv(parcel_path, low_memory=False)
+    before_filter = len(df)
+    df = subset_residential_rows(df, strict=True)
+    print(f"Residential subset rows: {len(df)} of {before_filter}")
     
     # Clean data
     df["TOTAL_VALUE_LOG"] = np.log1p(df[TARGET_COL])
@@ -62,7 +66,7 @@ def main() -> None:
     ]
     
     print("\n" + "="*80)
-    print("FEATURE CORRELATION WITH LOG(TOTAL_VALUE)")
+    print("RESIDENTIAL FEATURE CORRELATION WITH LOG(TOTAL_VALUE)")
     print("="*80)
     
     results = []

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -16,21 +16,32 @@ from sklearn.preprocessing import OneHotEncoder
 
 TARGET_COL = "TOTAL_VALUE"
 
+RESIDENTIAL_FILTER_COLUMNS = [
+    "LU",
+]
+
+RESIDENTIAL_LU_CODES = {
+    "A",   # Residential 7 or more units
+    "CD",  # Residential condominium unit
+    "CM",  # Condominium main
+    "R1",  # Residential 1-family
+    "R2",  # Residential 2-family
+    "R3",  # Residential 3-family
+    "R4",  # Residential 4 or more family
+    "RC",  # Mixed use (residential and commercial)
+    "RL",  # Residential land
+}
+
 STRUCTURAL_FEATURES = [
-    "GROSS_AREA",
-    "LIVING_AREA",
-    "BED_RMS",
-    "FULL_BTH",
-    "HLF_BTH",
-    "NUM_PARKING",
-    "YR_BUILT",
-    "YR_REMODEL",
+    "RES_FLOOR",
+    "STRUCTURE_CLASS",
+    "INT_COND",
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
     "emp_dist_m",
-    "neighborhood_walkability",
 ]
+
 
 def require_existing_path(path: Path, label: str) -> Path:
     """Return a resolved path or raise a clear error for missing inputs."""
@@ -43,6 +54,43 @@ def require_existing_path(path: Path, label: str) -> Path:
 def available_features(df: pd.DataFrame, feature_pool: list[str]) -> list[str]:
     """Return features from feature_pool that exist in the dataframe."""
     return [feature for feature in feature_pool if feature in df.columns]
+
+
+def subset_residential_rows(
+    df: pd.DataFrame,
+    strict: bool = True,
+) -> pd.DataFrame:
+    """Return only rows with residential LU codes."""
+    available_filter_cols = [
+        col for col in RESIDENTIAL_FILTER_COLUMNS if col in df.columns
+    ]
+
+    if not available_filter_cols:
+        if strict:
+            raise ValueError(
+                "Cannot subset to residential rows: none of "
+                f"{RESIDENTIAL_FILTER_COLUMNS} found in input data."
+            )
+        return df.copy()
+
+    lu_col = available_filter_cols[0]
+    lu_codes = (
+        df[lu_col]
+        .astype("string")
+        .fillna("")
+        .str.strip()
+        .str.upper()
+    )
+    residential_mask = lu_codes.isin(RESIDENTIAL_LU_CODES)
+
+    residential_df = df.loc[residential_mask].copy()
+    if strict and residential_df.empty:
+        raise ValueError(
+            "Residential filter removed all rows. Check assessor type values in "
+            f"{available_filter_cols}."
+        )
+
+    return residential_df
 
 
 def infer_feature_types(
@@ -112,7 +160,7 @@ def build_ridge_pipeline(
     numeric_features: list[str],
     categorical_features: list[str],
 ) -> Pipeline:
-    """Create a preprocessing + RidgeCV pipeline for mixed feature types."""
+    """Create a preprocessing + Ridge pipeline for mixed feature types."""
     transformers = []
 
     if numeric_features:
@@ -143,9 +191,17 @@ def build_ridge_pipeline(
     return Pipeline(
         steps=[
             ("preprocess", preprocess),
-            ("ridge", RidgeCV(alphas=np.logspace(-3, 3, 13))),
+            ("ridge", Ridge(alpha=1.0, random_state=42)),
         ]
     )
+
+
+def get_ridge_alpha(model: Pipeline) -> float:
+    """Return ridge regularization value from a fitted pipeline."""
+    ridge = model.named_steps["ridge"]
+    if hasattr(ridge, "alpha_"):
+        return float(ridge.alpha_)
+    return float(ridge.alpha)
 
 
 def evaluate_log_and_level(

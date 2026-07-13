@@ -27,10 +27,12 @@ from modeling_common import (
     build_ridge_pipeline,
     evaluate_log_and_level,
     extract_coefficients,
+    get_ridge_alpha,
     infer_feature_types,
     prepare_model_df,
     require_existing_path,
     split_features_target,
+    subset_residential_rows,
 )
 
 
@@ -38,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parents[1]
 
     parser = argparse.ArgumentParser(
-        description="Estimate a hedonic model from parcel-level assessor data."
+        description="Estimate a residential hedonic model from parcel-level assessor data."
     )
     parser.add_argument(
         "--input-csv",
@@ -50,7 +52,7 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=repo_root / "hedonic" / "artifacts",
-        help="Directory where model artifacts are written.",
+        help="Directory where residential hedonic artifacts are written.",
     )
     parser.add_argument(
         "--test-size",
@@ -76,6 +78,9 @@ def main() -> None:
 
     print(f"Reading parcel data: {args.input_csv}")
     df = pd.read_csv(args.input_csv, low_memory=False)
+    before_filter = len(df)
+    df = subset_residential_rows(df, strict=True)
+    print(f"Residential subset rows: {len(df)} of {before_filter}")
 
     target_col = TARGET_COL
     if target_col not in df.columns:
@@ -111,7 +116,7 @@ def main() -> None:
         categorical_features=categorical_features,
     )
 
-    print("Training hedonic model...")
+    print("Training residential hedonic model...")
     model.fit(X_train, y_train)
 
     pred_log = model.predict(X_test)
@@ -129,15 +134,15 @@ def main() -> None:
         "r2_level": eval_metrics["r2_level"],
         "rmse_level": eval_metrics["rmse_level"],
         "mae_level": eval_metrics["mae_level"],
-        "alpha": float(model.named_steps["ridge"].alpha_),
+        "alpha": get_ridge_alpha(model),
     }
 
     coef_df = extract_coefficients(model)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model_path = args.output_dir / "hedonic_model.joblib"
-    metrics_path = args.output_dir / "hedonic_metrics.json"
-    coefficients_path = args.output_dir / "hedonic_coefficients.csv"
+    model_path = args.output_dir / "residential_hedonic_model.joblib"
+    metrics_path = args.output_dir / "residential_hedonic_metrics.json"
+    coefficients_path = args.output_dir / "residential_hedonic_coefficients.csv"
 
     joblib.dump(model, model_path)
     metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")

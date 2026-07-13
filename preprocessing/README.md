@@ -21,7 +21,13 @@ The scripts build and enrich `inputs/parcels.csv` in this order:
 - Adds `emp_dist_m` (distance to nearest employment center/CBD).
 - Updates `inputs/parcels.csv`.
 
-4. `add_transit_accessibility.py` (optional for now)
+4. `add_income.py`
+- Reads `inputs/parcels.csv`.
+- Pulls ACS tract-level median household income (`B19013_001E`) and spatially joins by tract.
+- Adds `median_hh_income`.
+- Updates `inputs/parcels.csv`.
+
+5. `add_transit_accessibility.py` (optional for now)
 - Reads `inputs/parcels.csv`.
 - Adds transit network distance column (default: `transit_walk_dist_m`).
 - Updates `inputs/parcels.csv`.
@@ -29,10 +35,11 @@ The scripts build and enrich `inputs/parcels.csv` in this order:
 
 Any script can be run standalone to modify column construction:
 ```
-python preprocessing/clean_parcels.py
-python preprocessing/add_zoning.py
-python preprocessing/add_employment_accessibility.py
-python preprocessing/add_transit_accessibility.py
+python preprocessing/steps/clean_parcels.py
+python preprocessing/steps/add_zoning.py
+python preprocessing/steps/add_income.py
+python preprocessing/steps/add_employment_accessibility.py
+python preprocessing/steps/add_transit_accessibility.py
 ```
 
 ## Run Pipeline Orchestrator

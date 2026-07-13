@@ -36,6 +36,7 @@
 | rear_setback | Minimum required rear setback from the lot line in the intersecting zoning subdistrict. |
 | max_dua | Maximum dwelling units per area metric allowed by zoning (as provided by source field). |
 | max_floors | Maximum number of stories/floors allowed by zoning for the intersecting subdistrict. |
+| median_hh_income | Tract-level median household income from ACS (B19013_001E), spatially joined to parcels by tract. |
 | emp_dist_m | Straight-line distance in meters from parcel representative point to the nearest employment center/CBD. |
 | neighborhood_walkability | Neighborhood walkability score (0-100) computed from built intensity and zoning capacity proxies. |
 | geometry | Parcel geometry in WKT format. |

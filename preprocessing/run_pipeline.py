@@ -4,8 +4,9 @@ Master pipeline orchestrator for parcel data preprocessing.
 This script runs all preprocessing steps in sequence:
 1. clean_parcels.py - Collapse assessor data to parcel level
 2. add_zoning.py - Add zoning attributes via spatial join
-3. add_employment_accessibility.py - Add employment center distances
-4. add_transit_accessibility.py - Add transit network distances (final output)
+3. add_income.py - Add tract median household income
+4. add_employment_accessibility.py - Add employment center distances
+5. add_transit_accessibility.py - Add transit network distances (final output)
 
 Each step reads the output of the previous step and adds new columns,
 producing the final `inputs/parcels.csv` with all attributes.
@@ -87,16 +88,19 @@ def main() -> None:
     args = parse_args()
     
     preprocessing_dir = Path(__file__).resolve().parent
+    steps_dir = preprocessing_dir / "steps"
     repo_root = preprocessing_dir.parent
     inputs_dir = repo_root / "inputs"
     final_csv = args.output_csv
+
+    steps_dir = require_existing_path(steps_dir, "Preprocessing steps folder")
     
     inputs_dir.mkdir(parents=True, exist_ok=True)
     
     # Step 1: Clean parcels
     run_step(
         "clean_parcels.py",
-        preprocessing_dir / "clean_parcels.py",
+        steps_dir / "clean_parcels.py",
         assessors_csv=args.raw_assessors,
         parcel_shapes=args.raw_parcel_shapes,
         output_csv=final_csv,
@@ -105,24 +109,32 @@ def main() -> None:
     # Step 2: Add zoning
     run_step(
         "add_zoning.py",
-        preprocessing_dir / "add_zoning.py",
+        steps_dir / "add_zoning.py",
         parcels_cleaned=final_csv,
         zoning_shapefile=args.zoning_shapefile,
         output_csv=final_csv,
     )
     
-    # Step 3: Add employment accessibility
+    # Step 3: Add tract income
+    run_step(
+        "add_income.py",
+        steps_dir / "add_income.py",
+        parcels_csv=final_csv,
+        output_csv=final_csv,
+    )
+
+    # Step 4: Add employment accessibility
     run_step(
         "add_employment_accessibility.py",
-        preprocessing_dir / "add_employment_accessibility.py",
+        steps_dir / "add_employment_accessibility.py",
         parcels_csv=final_csv,
         output_csv=final_csv,
     )
     
-    # Step 4: Add transit accessibility
+    # Step 5: Add transit accessibility
     run_step(
         "add_transit_accessibility.py",
-        preprocessing_dir / "add_transit_accessibility.py",
+        steps_dir / "add_transit_accessibility.py",
         parcels_csv=final_csv,
         output_csv=final_csv,
     )

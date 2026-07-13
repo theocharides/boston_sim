@@ -1,0 +1,20 @@
+{
+  "rows_total": 78306,
+  "rows_train": 62644,
+  "rows_test": 15662,
+  "target": "TOTAL_VALUE",
+  "numeric_features": [
+    "RES_FLOOR",
+    "emp_dist_m"
+  ],
+  "categorical_features": [
+    "STRUCTURE_CLASS",
+    "INT_COND"
+  ],
+  "r2_log": 0.5271544629527042,
+  "rmse_log": 0.4957233399926966,
+  "r2_level": -2.311745843035984,
+  "rmse_level": 15003723.403176686,
+  "mae_level": 1006697.2546489702,
+  "alpha": 1.0
+}
