@@ -1,3 +1,5 @@
 data/*
 !data/README.md
+preprocessing/raw_data/**
+!preprocessing/raw_data/README.md
 *.pyc

@@ -138,7 +138,8 @@ def main() -> None:
     args = parse_args()
 
     print(f"Reading parcel data: {args.input_csv}")
-    df = pd.read_csv(args.input_csv, low_memory=False)
+    # Use the Python parser for resilience with very wide geometry text rows.
+    df = pd.read_csv(args.input_csv, engine="python")
 
     target_col = TARGET_COL
     excluded_columns = {target_col}

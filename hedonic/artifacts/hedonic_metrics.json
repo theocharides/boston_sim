@@ -11,13 +11,15 @@
     "HLF_BTH",
     "NUM_PARKING",
     "YR_BUILT",
-    "YR_REMODEL"
+    "YR_REMODEL",
+    "emp_dist_m",
+    "neighborhood_walkability"
   ],
   "categorical_features": [],
-  "r2_log": 0.10070042769426968,
-  "rmse_log": 1.2996463312255988,
-  "r2_level": -4.69504134954132,
-  "rmse_level": 62291818.0375285,
-  "mae_level": 3658811.607035702,
+  "r2_log": 0.19910952059091513,
+  "rmse_log": 1.2264774204827937,
+  "r2_level": -4.555502118103885,
+  "rmse_level": 61523951.9372708,
+  "mae_level": 3568615.752630555,
   "alpha": 1000.0
 }

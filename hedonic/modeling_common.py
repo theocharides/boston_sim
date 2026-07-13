@@ -28,6 +28,8 @@ STRUCTURAL_FEATURES = [
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
+    "emp_dist_m",
+    "neighborhood_walkability",
 ]
 
 def require_existing_path(path: Path, label: str) -> Path:
