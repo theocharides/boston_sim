@@ -9,8 +9,11 @@ This script computes a simple residential development opportunity score from:
 Required inputs in parcels.csv:
 - LU
 - TOTAL_VALUE
-- RES_UNITS
 - zoned_units
+
+Current-units input:
+- Uses RES_UNITS when present.
+- Otherwise falls back to another *_RES_UNITS field if available.
 
 Required market-strength inputs:
 - median_hh_income (higher is stronger)
@@ -118,6 +121,22 @@ def percentile_rank(series: pd.Series, ascending: bool = True) -> pd.Series:
     return ranked.where(series.notna())
 
 
+def get_current_units_series(df: pd.DataFrame) -> pd.Series:
+    """Return current unit counts using RES_UNITS or a compatible fallback field."""
+    if "RES_UNITS" in df.columns:
+        return to_numeric(df["RES_UNITS"]).fillna(0.0).clip(lower=0.0)
+
+    fallback_columns = [
+        col
+        for col in df.columns
+        if col.upper().endswith("RES_UNITS") and col.upper() != "RES_UNITS"
+    ]
+    if fallback_columns:
+        return to_numeric(df[fallback_columns[0]]).fillna(0.0).clip(lower=0.0)
+
+    raise ValueError("Missing current-units field. Expected RES_UNITS or a compatible *_RES_UNITS column.")
+
+
 def parse_yaml_scalar(raw_value: str):
     """Parse a simple YAML scalar value without external dependencies."""
     value = raw_value.strip()
@@ -181,7 +200,6 @@ def main() -> None:
         "LU",
         "TOTAL_VALUE",
         "zoned_units",
-        "RES_UNITS",
         "median_hh_income",
         "neighborhood_walkability",
         "emp_dist_m",
@@ -198,7 +216,7 @@ def main() -> None:
     out = df.copy()
 
     zoned_units = to_numeric(out["zoned_units"])
-    current_units = to_numeric(out["RES_UNITS"]).fillna(0.0).clip(lower=0.0)
+    current_units = get_current_units_series(out)
     total_value = to_numeric(out["TOTAL_VALUE"])
 
     additional_units = (zoned_units - current_units).clip(lower=0.0)
