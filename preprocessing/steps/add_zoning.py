@@ -43,7 +43,7 @@ OUTPUT_COLUMNS: list[str] = [
     "LU_DESC",
     "BLDG_TYPE",
     "RES_FLOOR",
-    "CONDO_RES_UNITS",
+    "RES_UNITS",
     "TT_RMS",
     "BED_RMS",
     "FULL_BTH",

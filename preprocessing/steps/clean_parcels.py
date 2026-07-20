@@ -38,7 +38,7 @@ OUTPUT_COLUMN_MAP: dict[str, str] = {
     "LU_DESC": "LU_DESC",
     "BLDG_TYPE": "BLDG_TYPE",
     "RES_FLOOR": "RES_FLOOR",
-    "RES_UNITS": "CONDO_RES_UNITS",
+    "RES_UNITS": "RES_UNITS",
     "TT_RMS": "TT_RMS",
     "BED_RMS": "BED_RMS",
     "FULL_BTH": "FULL_BTH",

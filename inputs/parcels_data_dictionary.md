@@ -9,7 +9,7 @@
 | LU_DESC | Land use description text. |
 | BLDG_TYPE | Building type or structural style classification. |
 | RES_FLOOR | Number of residential floors. |
-| CONDO_RES_UNITS | Count of residential units (from assessor RES_UNITS). |
+| RES_UNITS | Count of residential units. |
 | TT_RMS | Total number of rooms. |
 | BED_RMS | Number of bedrooms. |
 | FULL_BTH | Number of full bathrooms. |
@@ -40,3 +40,25 @@
 | emp_dist_m | Straight-line distance in meters from parcel representative point to the nearest employment center/CBD. |
 | neighborhood_walkability | Neighborhood walkability score (0-100) computed from built intensity and zoning capacity proxies. |
 | geometry | Parcel geometry in WKT format. |
+
+## LU Code Categories
+
+| LU code | Category |
+| --- | --- |
+| A | Residential 7 or more units |
+| AH | Agricultural/Horticultural |
+| C | Commercial |
+| CC | Commercial condominium |
+| CD | Residential condominium unit |
+| CL | Commercial land |
+| CM | Condominium main (physical structure housing all related condo units with no assessed value) |
+| CP | Condo parking |
+| E | Tax-exempt |
+| EA | Tax-exempt (121A) |
+| I | Industrial |
+| R1 | Residential 1-family |
+| R2 | Residential 2-family |
+| R3 | Residential 3-family |
+| R4 | Residential 4 or more family |
+| RC | Mixed use (residential and commercial) |
+| RL | Residential land |
