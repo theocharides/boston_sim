@@ -14,19 +14,24 @@ Inputs:
 - `boston_parcel_shapes.geojson`
 
 Outputs:
-- `inputs/parcels.csv`
+- `parcels_preprocessed.csv`
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 
-from utils import require_existing_path, clean_numeric
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from preprocessing.utils import clean_numeric
+from shared_utils import require_existing_path
 
 
 # Map source assessor columns to final cleaned output names.
@@ -62,6 +67,7 @@ OUTPUT_COLUMN_MAP: dict[str, str] = {
 SOURCE_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.keys())
 OUTPUT_COLUMNS: list[str] = [
     *OUTPUT_COLUMN_MAP.values(),
+    "LIVING_AREA_PER_UNIT",
     "geometry",
 ]
 
@@ -107,7 +113,7 @@ def to_base_pid(pid_norm: pd.Series) -> pd.Series:
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
 
     parser = argparse.ArgumentParser(
         description="Collapse Boston assessors to one row per parcel geometry."
@@ -115,19 +121,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--assessors-csv",
         type=Path,
-        default=repo_root / "data" / "boston_parcel_assessors.csv",
+        default=repo_root / "preprocessing" / "raw_data" / "boston_parcel_assessors.csv",
         help="Path to assessor CSV.",
     )
     parser.add_argument(
         "--parcel-shapes",
         type=Path,
-        default=repo_root / "data" / "boston_parcel_shapes.geojson",
+        default=repo_root / "preprocessing" / "raw_data" / "boston_parcel_shapes.geojson",
         help="Path to parcel polygon file.",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Output CSV path.",
     )
 
@@ -223,6 +229,14 @@ def main() -> None:
         if source_col != output_col
     }
     result = result.rename(columns=rename_map)
+
+    # Derive average living area per unit where both inputs are available and units > 0.
+    living_area = pd.to_numeric(result.get("LIVING_AREA"), errors="coerce")
+    res_units = pd.to_numeric(result.get("RES_UNITS"), errors="coerce")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        living_area_per_unit = living_area / res_units
+    living_area_per_unit = living_area_per_unit.where(res_units > 0)
+    result["LIVING_AREA_PER_UNIT"] = living_area_per_unit
 
     # Store geometry as WKT so parcel geometry is retained in a plain CSV.
     result["geometry"] = result["geometry"].map(

@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import sys
 from json import JSONDecodeError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -19,11 +20,15 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from utils import load_parcels_csv, require_existing_path, save_parcels_csv, to_point_geometry
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from preprocessing.utils import load_parcels_csv, save_parcels_csv, to_point_geometry
+from shared_utils import require_existing_path
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
 
     parser = argparse.ArgumentParser(
         description="Add tract median household income to parcel records."
@@ -31,13 +36,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Path to parcels CSV with geometry in WKT.",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Output CSV path (can be same as input for in-place update).",
     )
     parser.add_argument(

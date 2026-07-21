@@ -6,22 +6,27 @@ performs a spatial join with zoning subdistrict boundaries to add zoning
 attributes to each parcel.
 
 Inputs:
-- `inputs/parcels.csv` (output from clean_parcels.py)
+- `parcels_preprocessed.csv` (output from clean_parcels.py)
 - `boston_zoning_subdistricts/Boston_Zoning_Subdistricts.shp`
 
 Outputs:
-- `inputs/parcels.csv`
+- `parcels_preprocessed.csv`
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 import pandas as pd
 import geopandas as gpd
 
-from utils import require_existing_path, load_parcels_csv, save_parcels_csv
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from preprocessing.utils import load_parcels_csv, save_parcels_csv
+from shared_utils import require_existing_path
 
 
 ZONING_COLUMN_MAP: dict[str, str] = {
@@ -68,7 +73,7 @@ OUTPUT_COLUMNS: list[str] = [
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
 
     parser = argparse.ArgumentParser(
         description="Add zoning attributes to cleaned parcel data."
@@ -76,14 +81,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-cleaned",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Path to cleaned parcels CSV (output from clean_parcels.py).",
     )
     parser.add_argument(
         "--zoning-shapefile",
         type=Path,
         default=repo_root
-        / "data"
+        / "preprocessing"
+        / "raw_data"
         / "boston_zoning_subdistricts"
         / "Boston_Zoning_Subdistricts.shp",
         help="Path to zoning subdistrict shapefile.",
@@ -91,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Output CSV path.",
     )
 
