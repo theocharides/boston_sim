@@ -1,0 +1,5 @@
+# Total number of net new housing units to allocate across Boston parcels.
+units_to_add: 10000
+
+# Number of simulation time steps.
+time_steps: 2
