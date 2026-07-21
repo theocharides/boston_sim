@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from shapely import wkt
 
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-def require_existing_path(path: Path, label: str) -> Path:
-    """Return a resolved path or raise a clear error for missing inputs."""
-    resolved = path.expanduser().resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"{label} not found: {resolved}")
-    return resolved
+
 
 
 def load_parcels_csv(csv_path: Path, crs: str = "EPSG:4326") -> gpd.GeoDataFrame:
