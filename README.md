@@ -1,6 +1,6 @@
 ## Overview
 
-The simulator adds specified housing production targets to Boston parcels where residential unit capacity exists. Residential units are allocated to parcels based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and ammenity growth, and updates parcel values based on changing walkability scores for a user-defined number of time steps.
+This Boston simulator allocates housing units to Boston parcels where residential unit capacity exists. Residential units are allocated based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and ammenity growth. Parcel prices then update as parcels walkability scores are updated.
 
 ## Preprocessing
 
@@ -27,6 +27,9 @@ The main simulation config is `development_sim.yaml`.
 
 ## Simulation
 
+Simulation settings are config-driven: edit `development_sim.yaml` to set housing
+allocation totals and the number of model times steps. The config also controls development scoring weights, and walkability radius.
+
 `run_development_sim.py` runs the simulation in three steps per time period:
 1. Calculate development opportunity and allocate units within parcel capacity.
 2. Recompute neighborhood walkability after the new units are placed, with
@@ -34,9 +37,6 @@ The main simulation config is `development_sim.yaml`.
 3. Update residential `TOTAL_VALUE` using the pre-trained hedonic model. 
 
 Housing production is allocated over a user-defined number time steps, with walkability raising market strength and higher total value raising acquisition cost intensity.
-
-Simulation settings are config-driven: edit `development_sim.yaml` for
-allocation totals, step count, development scoring weights, and walkability radius.
 
 The final output is the post-simulation parcel table
 `simulation_ouputs/parcels_simulated.csv`.
