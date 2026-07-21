@@ -27,9 +27,6 @@ The main simulation config is `development_sim.yaml`.
 
 ## Simulation
 
-Simulation settings are config-driven: edit `development_sim.yaml` to set housing
-allocation totals and the number of model times steps. The config also controls development scoring weights, and walkability radius.
-
 `run_development_sim.py` runs the simulation in three steps per time period:
 1. Calculate development opportunity and allocate units within parcel capacity.
 2. Recompute neighborhood walkability after the new units are placed, with
