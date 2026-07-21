@@ -1,5 +1,13 @@
-# Total number of net new housing units to allocate across Boston parcels.
+# Total number of net new housing units to allocate across Boston parcels
 units_to_add: 10000
 
-# Number of simulation time steps.
+# Number of simulation time steps
 time_steps: 2
+
+# Development opportunity score weights
+w_capacity: 1.0
+w_market: 1.0
+w_cost: 1.0
+
+# Walkability scoring max network distance (meters)
+max_walk_distance_m: 1600.0

@@ -4,7 +4,7 @@ The simulator adds specified housing production targets to Boston parcels where 
 
 ## Preprocessing
 
-The preprocessing pipeline lives in [preprocessing/](preprocessing/README.md)
+The preprocessing pipeline lives in `preprocessing/`.
 and is orchestrated by `preprocessing/run_data_prep.py`.
 
 It runs these steps in order:
@@ -22,6 +22,8 @@ The main simulation config is `development_sim.yaml`.
 
 - `units_to_add` sets the total number of new units to allocate.
 - `time_steps` sets how many simulation rounds to split that allocation across.
+- `w_capacity`, `w_market`, `w_cost` set development opportunity score weights.
+- `max_walk_distance_m` sets the walkability scoring distance cap used in each step.
 
 ## Simulation
 
@@ -33,27 +35,12 @@ The main simulation config is `development_sim.yaml`.
 
 Housing production is allocated over a user-defined number time steps, with walkability raising market strength and higher total value raising acquisition cost intensity.
 
-### Development Opportunity Scoring
-
-Development allocation uses `development/allocation.py`.
-
-The opportunity score combines:
-1. Capacity upside: additional units allowed by zoning.
-2. Market strength: neighborhood proxies (income, walkability, employment proximity).
-3. Acquisition cost intensity: current value relative to zoned unit capacity.
-
-Parcels are ranked by `opportunity_score`, assigned to high/medium/low tiers,
-and allocated units in descending score order until each step target is met or
-eligible parcel capacity is exhausted.
-
-Weight controls are exposed in `run_development_sim.py`:
-- `--w-capacity`
-- `--w-market`
-- `--w-cost`
+Simulation settings are config-driven: edit `development_sim.yaml` for
+allocation totals, step count, development scoring weights, and walkability radius.
 
 The final output is the post-simulation parcel table `parcels_simulated.csv`.
 
-Future development
+### Future development
 1. Use a location choice model to add new ammenities.
 2. Use household growth projections to create housing production targets.
 3. Add a light visualizer to inspect simulation results. 

@@ -11,6 +11,10 @@ Workflow per time step:
 Configuration is read from development_sim.yaml:
 - units_to_add: total units to allocate across all time steps.
 - time_steps: number of simulation steps to run.
+- w_capacity: weight on capacity score in development opportunity.
+- w_market: weight on market score in development opportunity.
+- w_cost: weight on acquisition cost score in development opportunity.
+- max_walk_distance_m: walkability max distance passed to accessibility step.
 """
 
 from __future__ import annotations
@@ -60,36 +64,11 @@ def parse_args() -> argparse.Namespace:
         help="Directory for per-step artifacts.",
     )
     parser.add_argument(
-        "--w-capacity",
-        type=float,
-        default=1.0,
-        help="Weight on capacity score in development opportunity.",
-    )
-    parser.add_argument(
-        "--w-market",
-        type=float,
-        default=1.0,
-        help="Weight on market score in development opportunity.",
-    )
-    parser.add_argument(
-        "--w-cost",
-        type=float,
-        default=1.0,
-        help="Weight on acquisition cost score in development opportunity.",
-    )
-    parser.add_argument(
-        "--max-walk-distance-m",
-        type=float,
-        default=1600.0,
-        help="Walkability max distance passed to accessibility script.",
-    )
-    parser.add_argument(
         "--hedonic-model-path",
         type=Path,
         default=repo_root / "hedonic" / "artifacts" / "residential_hedonic_model.joblib",
         help="Path to pre-trained hedonic model used for price updates.",
     )
-
     args = parser.parse_args()
     args.parcels_csv = require_existing_path(args.parcels_csv, "Parcels CSV")
     args.config_yaml = require_existing_path(args.config_yaml, "Simulation config")
@@ -102,17 +81,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     config = load_simple_yaml(args.config_yaml)
+    repo_root = Path(__file__).resolve().parent
 
     if "units_to_add" not in config:
         raise ValueError("Config must include units_to_add.")
 
     total_units = int(config["units_to_add"])
     time_steps = int(config.get("time_steps", 2))
+    w_capacity = float(config.get("w_capacity", 1.0))
+    w_market = float(config.get("w_market", 1.0))
+    w_cost = float(config.get("w_cost", 1.0))
+    max_walk_distance_m = float(config.get("max_walk_distance_m", 1600.0))
 
     if total_units < 0:
         raise ValueError("units_to_add must be >= 0")
     if time_steps < 1:
         raise ValueError("time_steps must be >= 1")
+    if max_walk_distance_m <= 0:
+        raise ValueError("max_walk_distance_m must be > 0")
 
     units_per_step = allocate_units_by_step(total_units, time_steps)
 
@@ -121,8 +107,6 @@ def main() -> None:
 
     base = pd.read_csv(args.parcels_csv, low_memory=False)
     base.to_csv(working_csv, index=False)
-
-    repo_root = Path(__file__).resolve().parent
 
     model_path = require_existing_path(args.hedonic_model_path, "Hedonic model")
     fixed_hedonic_model = joblib.load(model_path)
@@ -140,16 +124,16 @@ def main() -> None:
             working_csv=working_csv,
             step_dir=step_dir,
             units_this_step=units_this_step,
-            w_capacity=args.w_capacity,
-            w_market=args.w_market,
-            w_cost=args.w_cost,
+            w_capacity=w_capacity,
+            w_market=w_market,
+            w_cost=w_cost,
         )
         cumulative_allocated += allocated_now
 
         run_walkability_update_step(
             repo_root=repo_root,
             working_csv=working_csv,
-            max_walk_distance_m=args.max_walk_distance_m,
+            max_walk_distance_m=max_walk_distance_m,
         )
 
         current = run_hedonic_update_step(working_csv=working_csv, model=fixed_hedonic_model)
