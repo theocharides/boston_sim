@@ -1,6 +1,6 @@
 ## Overview
 
-This Boston simulator allocates housing units to Boston parcels where residential unit capacity exists. Residential units are allocated based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and ammenity growth. Parcel prices then update as parcels walkability scores are updated.
+This Boston simulator allocates housing units to Boston parcels where residential unit capacity exists. Residential units are allocated based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and ammenity growth. Parcel prices then update as parcel walkability scores change.
 
 ## Preprocessing
 
@@ -13,8 +13,7 @@ It runs these steps in order:
 3. `add_income.py` joins tract-level median household income using the Census API.
 4. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
 
-The preprocessing output is the canonical parcel table
-`parcels_preprocessed.csv`.
+The preprocessing output is stores as `parcels_preprocessed.csv`.
 
 ## Configuration
 
@@ -30,7 +29,7 @@ The main simulation config is `development_sim.yaml`.
 `run_development_sim.py` runs the simulation in three steps per time period:
 1. Calculate development opportunity and allocate units within parcel capacity.
 2. Recompute neighborhood walkability after the new units are placed, with
-	synthetic amenities added near newly developed parcels. Parcels with more new units are more likely to receive new amenitie
+	synthetic amenities added near newly developed parcels. 
 3. Update residential `TOTAL_VALUE` using the pre-trained hedonic model. 
 
 Housing production is allocated over a user-defined number time steps, with walkability raising market strength and higher total value raising acquisition cost intensity.
@@ -40,7 +39,7 @@ The final output is the post-simulation parcel table
 
 After simulation completes, a post-processing step writes summary
 outputs:
-- `simulation_ouputs/simulation_summary.csv`: one-row run summary with
+- `simulation_ouputs/simulation_summary.csv`: summary of
 	total units added and number of parcels that received added units.
 - `simulation_ouputs/simulation_added_units_by_area.csv`: where units were
 	added, summarized by land use category (`LU`).
