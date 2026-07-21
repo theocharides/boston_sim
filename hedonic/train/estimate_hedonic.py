@@ -1,14 +1,4 @@
-"""
-Estimate a hedonic price model from the parcels table.
-
-This script fits a regularized linear regression model to predict parcel
-assessed value using structural and locational/neighborhood proxy variables.
-
-It estimates one combined specification that uses all available features from
-the shared structural and locational/neighborhood pools.
-
-It writes model artifacts, fit metrics, and coefficients to hedonic/artifacts.
-"""
+"""Train a residential ridge hedonic model and write artifacts."""
 
 from __future__ import annotations
 
@@ -19,7 +9,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from modeling_common import (
+from hedonic.common.modeling_common import (
     LOC_NEIGHBORHOOD_FEATURES,
     TARGET_COL,
     STRUCTURAL_FEATURES,
@@ -37,7 +27,7 @@ from modeling_common import (
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
 
     parser = argparse.ArgumentParser(
         description="Estimate a residential hedonic model from parcel-level assessor data."
@@ -45,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Path to parcel-level input CSV.",
     )
     parser.add_argument(

@@ -14,6 +14,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
+from shared_utils import require_existing_path
+
 TARGET_COL = "TOTAL_VALUE"
 
 RESIDENTIAL_FILTER_COLUMNS = [
@@ -33,24 +35,15 @@ RESIDENTIAL_LU_CODES = {
 }
 
 STRUCTURAL_FEATURES = [
-    "RES_FLOOR",
-    "STRUCTURE_CLASS",
-    "INT_COND",
+    "LIVING_AREA",
+    "LAND_SF",
+    "INT_COND"
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
+    "neighborhood_walkability",
     "emp_dist_m",
 ]
-
-
-def require_existing_path(path: Path, label: str) -> Path:
-    """Return a resolved path or raise a clear error for missing inputs."""
-    resolved = path.expanduser().resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"{label} not found: {resolved}")
-    return resolved
-
-
 def available_features(df: pd.DataFrame, feature_pool: list[str]) -> list[str]:
     """Return features from feature_pool that exist in the dataframe."""
     return [feature for feature in feature_pool if feature in df.columns]

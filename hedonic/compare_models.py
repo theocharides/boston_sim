@@ -1,13 +1,4 @@
-"""
-Compare hedonic models using different variable combinations.
-
-This script tests multiple feature specifications on the same train/test split,
-computes fit metrics for each, and writes a summary table. It helps identify
-which variables contribute most to model performance.
-
-Specifications are built as different combinations of structural features and
-locational/neighborhood features.
-"""
+"""Compare residential hedonic feature specifications on a shared split."""
 
 from __future__ import annotations
 
@@ -17,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from modeling_common import (
+from hedonic.common.modeling_common import (
     LOC_NEIGHBORHOOD_FEATURES,
     RESIDENTIAL_FILTER_COLUMNS,
     STRUCTURAL_FEATURES,
@@ -41,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Path to parcel-level input CSV.",
     )
     parser.add_argument(

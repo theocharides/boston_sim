@@ -1,12 +1,4 @@
-"""
-Ultra-fast feature comparison using just correlation and variance metrics.
-
-Shows which features have the strongest relationship with the target,
-without fitting full models.
-
-It evaluates multiple combinations of structural and locational/neighborhood
-feature groups and ranks them by average absolute correlation.
-"""
+"""Run a quick correlation-based screen for residential hedonic features."""
 
 from __future__ import annotations
 
@@ -15,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from modeling_common import (
+from hedonic.common.modeling_common import (
     LOC_NEIGHBORHOOD_FEATURES,
     STRUCTURAL_FEATURES,
     TARGET_COL,
@@ -28,7 +20,7 @@ from modeling_common import (
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    parcel_path = require_existing_path(repo_root / "inputs" / "parcels.csv", "Parcel CSV")
+    parcel_path = require_existing_path(repo_root / "parcels_preprocessed.csv", "Parcel CSV")
     
     print(f"Reading: {parcel_path}")
     df = pd.read_csv(parcel_path, low_memory=False)

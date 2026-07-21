@@ -21,7 +21,7 @@ def run(
     w_cost: float,
 ) -> int:
     """Run development scoring and allocation, update working CSV, return allocated units."""
-    development_script = repo_root / "development" / "opportunity.py"
+    development_script = repo_root / "development" / "allocation.py"
     scored_csv = step_dir / "development_opportunity_scored.csv"
     step_config_path = step_dir / "development_step_config.yaml"
     write_simple_yaml(step_config_path, {"units_to_add": units_this_step})
