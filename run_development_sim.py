@@ -2,6 +2,7 @@
 Run a multi-step residential development simulation.
 
 Workflow per time step:
+0) Run capacity and walkability steps to create baseline parcel values.
 1) Score development opportunity and allocate units under parcel capacity.
 2) Apply allocated units to parcel RES_UNITS.
 3) Recompute neighborhood walkability from the updated parcel table, adding
@@ -20,6 +21,8 @@ Configuration is read from development_sim.yaml:
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 import joblib
@@ -32,6 +35,67 @@ from simulation.steps.common import allocate_units_by_step
 from simulation.steps.step_01_development_allocation import run as run_development_allocation_step
 from simulation.steps.step_02_walkability_update import run as run_walkability_update_step
 from simulation.steps.step_03_hedonic_update import run as run_hedonic_update_step
+
+
+def ensure_required_input_columns(
+    repo_root: Path,
+    working_csv: Path,
+    max_walk_distance_m: float,
+) -> None:
+    """Ensure allocation prerequisites exist, auto-building selected missing columns."""
+    probe = pd.read_csv(working_csv, nrows=1, low_memory=False)
+    available = set(probe.columns)
+
+    if "zoned_units" not in available:
+        capacity_script = repo_root / "residential_capacity" / "calculate_unit_capacity.py"
+        capacity_cmd = [
+            sys.executable,
+            str(capacity_script),
+            "--input-csv",
+            str(working_csv),
+        ]
+        print(f"\n{'=' * 72}")
+        print("Preflight: add zoned_units")
+        print("Command:", " ".join(capacity_cmd))
+        print(f"{'=' * 72}")
+        subprocess.run(capacity_cmd, check=True)
+
+    probe = pd.read_csv(working_csv, nrows=1, low_memory=False)
+    available = set(probe.columns)
+    if "neighborhood_walkability" not in available:
+        walkability_script = repo_root / "accessibility" / "neighborhood_walkability.py"
+        walkability_cmd = [
+            sys.executable,
+            str(walkability_script),
+            "--parcels-csv",
+            str(working_csv),
+            "--output-csv",
+            str(working_csv),
+            "--max-walk-distance-m",
+            str(max_walk_distance_m),
+        ]
+        print(f"\n{'=' * 72}")
+        print("Preflight: add neighborhood_walkability")
+        print("Command:", " ".join(walkability_cmd))
+        print(f"{'=' * 72}")
+        subprocess.run(walkability_cmd, check=True)
+
+    required_for_allocation = [
+        "LU",
+        "TOTAL_VALUE",
+        "RES_UNITS",
+        "zoned_units",
+        "median_hh_income",
+        "neighborhood_walkability",
+        "emp_dist_m",
+    ]
+    probe = pd.read_csv(working_csv, nrows=1, low_memory=False)
+    missing = [column for column in required_for_allocation if column not in probe.columns]
+    if missing:
+        raise ValueError(
+            "Input parcel table is missing required columns for development allocation: "
+            f"{missing}. Run preprocessing/run_data_prep.py to rebuild parcel inputs."
+        )
 
 def parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parent
@@ -108,6 +172,12 @@ def main() -> None:
     base = pd.read_csv(args.parcels_csv, low_memory=False)
     base.to_csv(working_csv, index=False)
 
+    ensure_required_input_columns(
+        repo_root=repo_root,
+        working_csv=working_csv,
+        max_walk_distance_m=max_walk_distance_m,
+    )
+
     model_path = require_existing_path(args.hedonic_model_path, "Hedonic model")
     fixed_hedonic_model = joblib.load(model_path)
     print(f"Using fixed hedonic model: {model_path}")
@@ -169,6 +239,21 @@ def main() -> None:
 
     summary_path = args.run_dir / "simulation_summary.csv"
     pd.DataFrame(summaries).to_csv(summary_path, index=False)
+
+    postprocess_script = repo_root / "simulation" / "postprocess_simulation_outputs.py"
+    postprocess_cmd = [
+        sys.executable,
+        str(postprocess_script),
+        "--input-csv",
+        str(args.output_csv),
+        "--output-dir",
+        str(repo_root),
+    ]
+    print(f"\n{'=' * 72}")
+    print("Post-process: summarize added units")
+    print("Command:", " ".join(postprocess_cmd))
+    print(f"{'=' * 72}")
+    subprocess.run(postprocess_cmd, check=True)
 
     print("\nSimulation complete")
     print(f"Input parcels: {args.parcels_csv}")

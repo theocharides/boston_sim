@@ -10,6 +10,9 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Generated top-level data outputs
+parcels_preprocessed.csv
+
 # Generic and tool cache directories/files
 cache/
 **/cache/
