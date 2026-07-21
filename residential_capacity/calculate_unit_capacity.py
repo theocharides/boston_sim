@@ -15,21 +15,19 @@ Method:
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from shared_utils import require_existing_path
+
 RESIDENTIAL_LU_CODES = {"A", "CD", "CM", "R1", "R2", "R3", "R4", "RC", "RL"}
 SQFT_PER_ACRE = 43560.0
-
-
-def require_existing_path(path: Path, label: str) -> Path:
-    """Resolve a path and raise a clear error when it does not exist."""
-    resolved = path.expanduser().resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"{label} not found: {resolved}")
-    return resolved
 
 
 def parse_args() -> argparse.Namespace:
