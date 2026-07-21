@@ -36,6 +36,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to output scored CSV.",
     )
     parser.add_argument(
+        "--units-to-add",
+        type=int,
+        default=None,
+        help="Optional units target. If provided, overrides config YAML units_to_add.",
+    )
+    parser.add_argument(
         "--config-yaml",
         type=Path,
         default=repo_root / "development_sim.yaml",
@@ -62,7 +68,10 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Parcel CSV")
-    args.config_yaml = require_existing_path(args.config_yaml, "Config YAML")
+    if args.units_to_add is None:
+        args.config_yaml = require_existing_path(args.config_yaml, "Config YAML")
+    else:
+        args.config_yaml = args.config_yaml.expanduser().resolve()
     args.output_csv = args.output_csv.expanduser().resolve()
     return args
 
@@ -82,16 +91,18 @@ def main() -> None:
 
     print(f"Reading parcel data: {args.input_csv}")
     df = pd.read_csv(args.input_csv, low_memory=False)
-    config = load_simple_yaml(args.config_yaml)
-
-    if "units_to_add" not in config:
-        raise ValueError(
-            "Config YAML must include units_to_add."
-        )
-    try:
-        units_to_add = int(config["units_to_add"])
-    except (TypeError, ValueError) as exc:
-        raise ValueError("units_to_add must be an integer.") from exc
+    if args.units_to_add is not None:
+        units_to_add = int(args.units_to_add)
+    else:
+        config = load_simple_yaml(args.config_yaml)
+        if "units_to_add" not in config:
+            raise ValueError(
+                "Config YAML must include units_to_add."
+            )
+        try:
+            units_to_add = int(config["units_to_add"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("units_to_add must be an integer.") from exc
     if units_to_add < 0:
         raise ValueError("units_to_add must be >= 0.")
 
@@ -193,7 +204,7 @@ def main() -> None:
     unmet_units = max(int(units_to_add - total_allocated_units), 0)
 
     print(f"Wrote scored output: {args.output_csv}")
-    print(f"Target units from config: {units_to_add}")
+    print(f"Target units: {units_to_add}")
     print(f"Allocated units: {total_allocated_units}")
     print(f"Unmet units (if capacity limited): {unmet_units}")
     print(f"Residential rows: {residential_rows}")

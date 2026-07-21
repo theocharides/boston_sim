@@ -12,6 +12,7 @@ __pycache__/
 
 # Generated top-level data outputs
 parcels_preprocessed.csv
+simulation_ouputs/**
 
 # Generic and tool cache directories/files
 cache/

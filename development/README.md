@@ -86,5 +86,5 @@ python development/allocation.py --input-csv parcels_preprocessed.csv --output-c
 
 Simulation integration:
 - `simulation/steps/step_01_development_allocation.py` runs this script each
-  time step and writes a step-level config containing that step's
-  `units_to_add` target.
+  time step and passes that step's `units_to_add` target directly via
+  CLI (`--units-to-add`).

@@ -38,9 +38,17 @@ Housing production is allocated over a user-defined number time steps, with walk
 Simulation settings are config-driven: edit `development_sim.yaml` for
 allocation totals, step count, development scoring weights, and walkability radius.
 
-The final output is the post-simulation parcel table `parcels_simulated.csv`.
+The final output is the post-simulation parcel table
+`simulation_ouputs/parcels_simulated.csv`.
+
+After simulation completes, a post-processing step writes summary
+outputs:
+- `simulation_ouputs/simulation_summary.csv`: one-row run summary with
+	total units added and number of parcels that received added units.
+- `simulation_ouputs/simulation_added_units_by_area.csv`: where units were
+	added, summarized by land use category (`LU`).
 
 ### Future development
 1. Use a location choice model to add new ammenities.
-2. Use household growth projections to create housing production targets.
-3. Add a light visualizer to inspect simulation results. 
+2. Add a light visualizer to inspect simulation results.
+3. Make household income dynamic.

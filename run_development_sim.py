@@ -118,14 +118,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "parcels_simulated.csv",
+        default=repo_root / "simulation_ouputs" / "parcels_simulated.csv",
         help="Final simulated parcel CSV output.",
     )
     parser.add_argument(
         "--run-dir",
         type=Path,
-        default=repo_root / "simulation_outputs",
-        help="Directory for per-step artifacts.",
+        default=repo_root / "simulation_ouputs",
+        help="Directory for working/intermediate simulation files.",
     )
     parser.add_argument(
         "--hedonic-model-path",
@@ -186,13 +186,9 @@ def main() -> None:
     cumulative_allocated = 0
 
     for step, units_this_step in enumerate(units_per_step, start=1):
-        step_dir = args.run_dir / f"step_{step:02d}"
-        step_dir.mkdir(parents=True, exist_ok=True)
-
         allocated_now = run_development_allocation_step(
             repo_root=repo_root,
             working_csv=working_csv,
-            step_dir=step_dir,
             units_this_step=units_this_step,
             w_capacity=w_capacity,
             w_market=w_market,
@@ -247,7 +243,7 @@ def main() -> None:
         "--input-csv",
         str(args.output_csv),
         "--output-dir",
-        str(repo_root),
+        str(args.run_dir),
     ]
     print(f"\n{'=' * 72}")
     print("Post-process: summarize added units")

@@ -8,13 +8,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from .common import update_res_units_with_allocations, write_simple_yaml
+from .common import update_res_units_with_allocations
 
 
 def run(
     repo_root: Path,
     working_csv: Path,
-    step_dir: Path,
     units_this_step: int,
     w_capacity: float,
     w_market: float,
@@ -22,9 +21,6 @@ def run(
 ) -> int:
     """Run development scoring and allocation, update working CSV, return allocated units."""
     development_script = repo_root / "development" / "allocation.py"
-    scored_csv = step_dir / "development_opportunity_scored.csv"
-    step_config_path = step_dir / "development_step_config.yaml"
-    write_simple_yaml(step_config_path, {"units_to_add": units_this_step})
 
     cmd = [
         sys.executable,
@@ -32,9 +28,9 @@ def run(
         "--input-csv",
         str(working_csv),
         "--output-csv",
-        str(scored_csv),
-        "--config-yaml",
-        str(step_config_path),
+        str(working_csv),
+        "--units-to-add",
+        str(units_this_step),
         "--w-capacity",
         str(w_capacity),
         "--w-market",
@@ -49,7 +45,7 @@ def run(
     print(f"{'=' * 72}")
     subprocess.run(cmd, check=True)
 
-    scored = pd.read_csv(scored_csv, low_memory=False)
+    scored = pd.read_csv(working_csv, low_memory=False)
     scored = update_res_units_with_allocations(scored, allocated_col="allocated_units")
     scored.to_csv(working_csv, index=False)
 
