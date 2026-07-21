@@ -9,7 +9,7 @@ from pathlib import Path
 
 def run(repo_root: Path, working_csv: Path, max_walk_distance_m: float) -> None:
     """Recompute neighborhood walkability in-place for the working parcel CSV."""
-    walkability_script = repo_root / "accessibility" / "add_neighborhood_walkability.py"
+    walkability_script = repo_root / "accessibility" / "neighborhood_walkability.py"
 
     cmd = [
         sys.executable,

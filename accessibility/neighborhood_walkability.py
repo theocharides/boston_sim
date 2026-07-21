@@ -1,37 +1,4 @@
-"""
-Add a network-based neighborhood walkability score to parcel records.
-
-This script computes walkability from an actual OSM walking network rather than
-from parcel-density or zoning proxies.
-
-Method:
-1) Load parcel geometry and convert each parcel to a representative point.
-2) Download the local walking network covering the parcel extent.
-3) Download selected walk-destination amenities from OpenStreetMap.
-4) Snap parcel points and amenity points to the walking network.
-5) Compute shortest-path walking distance from each parcel to the nearest amenity
-    in each destination category.
-6) Convert those distances into a 0-100 walkability score, where parcels closer
-    to a wider set of daily destinations score higher.
-
-Destination categories:
-- grocery
-- food
-- education
-- park
-- transit
-
-Scoring:
-- Each category receives a subscore from walking distance using a linear decay:
-  100 at 0 meters, 0 at max-walk-distance-meters, clipped to [0, 100].
-- The final score is the mean of available category subscores for each parcel.
-- Parcels with no reachable sampled destinations remain blank.
-
-Optional housing-growth adjustment:
-- If a housing-growth column is provided, the script can add synthetic nearby
-    amenities in response to new development. This keeps walkability responsive to
-    growth through additional destinations rather than a direct score bump.
-"""
+"""Compute neighborhood walkability from OSM network distance to key amenities."""
 
 from __future__ import annotations
 
@@ -52,10 +19,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from preprocessing.utils import (
     load_parcels_csv,
-    require_existing_path,
     save_parcels_csv,
     to_point_geometry,
 )
+from shared_utils import require_existing_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,13 +34,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-csv",
         type=Path,
-        default=repo_root / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Path to parcels CSV with geometry in WKT.",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "parcels.csv",
+        default=repo_root / "parcels_preprocessed.csv",
         help="Output CSV path (can be same as input for in-place update).",
     )
     parser.add_argument(

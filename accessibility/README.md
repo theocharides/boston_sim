@@ -2,15 +2,35 @@
 
 This folder contains walkability and accessibility logic used by the simulation.
 
-## Walkability Update
+## Main Script
 
-`add_neighborhood_walkability.py` computes parcel walkability from an OSM
-walking network and a set of daily destination categories:
+- `neighborhood_walkability.py`: recomputes parcel walkability from a walking
+  network and destination amenities.
+
+## Walkability Update Method
+
+`neighborhood_walkability.py` computes parcel walkability from an OSM
+walking network and a set of daily destination categories.
+
+Categories used in scoring:
 - grocery
 - food
 - education
 - park
 - transit
+
+The script workflow is:
+1. Read parcel geometry and convert parcels to representative points.
+2. Download a local walking network for the parcel extent.
+3. Download destination amenities from OpenStreetMap.
+4. Snap parcels and destinations to the network.
+5. Compute shortest-path network distance to nearest destination by category.
+6. Convert distances to category scores and average to one parcel score.
+
+Scoring notes:
+- Category scores decay linearly from 100 at 0 m to 0 at `--max-walk-distance-m`.
+- Final walkability is the mean of available category scores.
+- Parcels with no reachable destinations for sampled categories remain blank.
 
 ## How New Housing Affects Walkability
 
@@ -33,7 +53,15 @@ How many amenities are added:
 The added amenities are combined with the OSM amenities, and the final
 walkability score is recomputed from the expanded destination set.
 
-## Main Script
+## CLI Usage
 
-- `add_neighborhood_walkability.py`: recomputes parcel walkability from the
-  walking network and amenities.
+Run directly:
+
+```bash
+python accessibility/neighborhood_walkability.py --parcels-csv parcels_preprocessed.csv --output-csv parcels_preprocessed.csv
+```
+
+Simulation integration:
+- `simulation/steps/step_02_walkability_update.py` runs this script each time
+  step and passes `--housing-growth-column allocated_units` so new development
+  can influence destination supply and walkability.
