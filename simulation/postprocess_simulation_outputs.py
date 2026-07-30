@@ -23,13 +23,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-csv",
         type=Path,
-        default=repo_root / "simulation_ouputs" / "parcels_simulated.csv",
+        default=repo_root / "outputs" / "parcels_simulated.csv",
         help="Path to simulated parcel CSV with allocated_units.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=repo_root / "simulation_ouputs",
+        default=repo_root / "outputs",
         help="Directory where top-level post-processing outputs are written.",
     )
 

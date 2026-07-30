@@ -106,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "outputs/parcels_preprocessed.csv",
         help="Preprocessed parcel CSV to simulate.",
     )
     parser.add_argument(
@@ -118,13 +118,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "simulation_ouputs" / "parcels_simulated.csv",
+        default=repo_root / "outputs" / "parcels_simulated.csv",
         help="Final simulated parcel CSV output.",
     )
     parser.add_argument(
         "--run-dir",
         type=Path,
-        default=repo_root / "simulation_ouputs",
+        default=repo_root / "outputs",
         help="Directory for working/intermediate simulation files.",
     )
     parser.add_argument(

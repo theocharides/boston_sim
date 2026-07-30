@@ -14,8 +14,7 @@ __pycache__/
 *.pyd
 
 # Generated top-level data outputs
-parcels_preprocessed.csv
-simulation_ouputs/**
+outputs/**
 
 # Generic and tool cache directories/files
 cache/

@@ -1,3 +1,0 @@
-step,units_requested,units_allocated,units_allocated_cumulative,mean_walkability,mean_residential_total_value,hedonic_mode
-1,5000,5000,5000,72.6704,1365148048843.3,predict-only
-2,5000,5000,10000,72.6751,1355410977705.77,predict-only

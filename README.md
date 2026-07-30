@@ -13,7 +13,7 @@ It runs these steps in order:
 3. `add_income.py` joins tract-level median household income using the Census API.
 4. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
 
-The preprocessing output is stores as `parcels_preprocessed.csv`.
+The preprocessing output is stored as `outputs/parcels_preprocessed.csv`.
 
 ## Configuration
 
@@ -35,13 +35,13 @@ The main simulation config is `development_sim.yaml`.
 Housing production is allocated over a user-defined number time steps, with walkability raising market strength and higher total value raising acquisition cost intensity.
 
 The final output is the post-simulation parcel table
-`simulation_ouputs/parcels_simulated.csv`.
+`outputs/parcels_simulated.csv`.
 
 After simulation completes, a post-processing step writes summary
 outputs:
-- `simulation_ouputs/simulation_summary.csv`: summary of
+- `outputs/simulation_summary.csv`: summary of
 	total units added and number of parcels that received added units.
-- `simulation_ouputs/simulation_added_units_by_area.csv`: where units were
+- `outputs/simulation_added_units_by_area.csv`: where units were
 	added, summarized by land use category (`LU`).
 
 ### Future development
