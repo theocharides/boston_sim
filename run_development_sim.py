@@ -21,6 +21,7 @@ Configuration is read from development_sim.yaml:
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -204,10 +205,11 @@ def main() -> None:
 
         current = run_hedonic_update_step(working_csv=working_csv, model=fixed_hedonic_model)
 
-        mean_walkability = float(pd.to_numeric(current.get("neighborhood_walkability"), errors="coerce").mean())
-        residential_values = pd.to_numeric(
-            subset_residential_rows(current, strict=True)[TARGET_COL], errors="coerce"
+        residential_rows = subset_residential_rows(current, strict=True)
+        mean_walkability = float(
+            pd.to_numeric(residential_rows.get("neighborhood_walkability"), errors="coerce").mean()
         )
+        residential_values = pd.to_numeric(residential_rows[TARGET_COL], errors="coerce")
         mean_residential_value = float(residential_values.mean())
 
         summaries.append(
@@ -220,7 +222,6 @@ def main() -> None:
                 "mean_residential_total_value": (
                     round(mean_residential_value, 2) if not np.isnan(mean_residential_value) else None
                 ),
-                "hedonic_mode": "predict-only",
             }
         )
 
@@ -233,8 +234,9 @@ def main() -> None:
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
     final_df.to_csv(args.output_csv, index=False)
 
-    summary_path = args.run_dir / "simulation_summary.csv"
-    pd.DataFrame(summaries).to_csv(summary_path, index=False)
+    step_summaries_path = args.run_dir / "step_summaries.json"
+    with step_summaries_path.open("w", encoding="utf-8") as stream:
+        json.dump(summaries, stream, ensure_ascii=True, indent=2)
 
     postprocess_script = repo_root / "simulation" / "postprocess_simulation_outputs.py"
     postprocess_cmd = [
@@ -244,17 +246,20 @@ def main() -> None:
         str(args.output_csv),
         "--output-dir",
         str(args.run_dir),
+        "--step-summaries-json",
+        str(step_summaries_path),
     ]
     print(f"\n{'=' * 72}")
     print("Post-process: summarize added units")
     print("Command:", " ".join(postprocess_cmd))
     print(f"{'=' * 72}")
     subprocess.run(postprocess_cmd, check=True)
+    step_summaries_path.unlink(missing_ok=True)
 
     print("\nSimulation complete")
     print(f"Input parcels: {args.parcels_csv}")
     print(f"Final output: {args.output_csv}")
-    print(f"Summary: {summary_path}")
+    print(f"Summary: {args.run_dir / 'simulation_summary.csv'}")
     print(f"Total units target: {total_units}")
     print(f"Total units allocated: {cumulative_allocated}")
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -32,10 +33,21 @@ def parse_args() -> argparse.Namespace:
         default=repo_root / "outputs",
         help="Directory where top-level post-processing outputs are written.",
     )
+    parser.add_argument(
+        "--step-summaries-json",
+        type=Path,
+        default=None,
+        help="Optional JSON file containing per-step simulation summaries.",
+    )
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Simulated parcels CSV")
     args.output_dir = args.output_dir.expanduser().resolve()
+    if args.step_summaries_json is not None:
+        args.step_summaries_json = require_existing_path(
+            args.step_summaries_json,
+            "Step summaries JSON",
+        )
     return args
 
 
@@ -44,6 +56,14 @@ def choose_area_column(df: pd.DataFrame) -> str:
     if "LU" not in df.columns:
         raise ValueError("No LU column found in input CSV; cannot summarize by land use category.")
     return "LU"
+
+
+def first_non_empty(values: pd.Series) -> str:
+    cleaned = values.astype("string").fillna("").str.strip()
+    non_empty = cleaned[cleaned != ""]
+    if non_empty.empty:
+        return "Unknown"
+    return str(non_empty.iloc[0])
 
 
 def main() -> None:
@@ -70,6 +90,7 @@ def main() -> None:
             columns=[
                 "area_type",
                 "area_name",
+                "area_description",
                 "parcels_with_added_units",
                 "units_added",
                 "share_of_added_units",
@@ -77,10 +98,14 @@ def main() -> None:
         )
     else:
         grouping = developed[area_column].astype("string").fillna("Unknown").replace("", "Unknown")
+        description_source = (
+            developed["LU_DESC"] if "LU_DESC" in developed.columns else developed[area_column]
+        )
         area_summary = (
-            developed.assign(_area_name=grouping)
+            developed.assign(_area_name=grouping, _area_description=description_source)
             .groupby("_area_name", as_index=False)
             .agg(
+                area_description=("_area_description", first_non_empty),
                 parcels_with_added_units=("PID", "count") if "PID" in developed.columns else ("allocated_units", "size"),
                 units_added=("allocated_units", "sum"),
             )
@@ -93,10 +118,20 @@ def main() -> None:
         area_summary = area_summary.sort_values("units_added", ascending=False).reset_index(drop=True)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    areas_path = args.output_dir / "simulation_added_units_by_area.csv"
+    summary_path = args.output_dir / "simulation_summary.csv"
+    areas_path = args.output_dir / "simulation_units_by_lu.csv"
+
+    if args.step_summaries_json is not None:
+        with args.step_summaries_json.open("r", encoding="utf-8") as stream:
+            step_summaries = json.load(stream)
+        if not isinstance(step_summaries, list):
+            raise ValueError("Step summaries JSON must contain a list of objects.")
+        pd.DataFrame(step_summaries).to_csv(summary_path, index=False)
 
     area_summary.to_csv(areas_path, index=False)
 
+    if args.step_summaries_json is not None:
+        print(f"Wrote simulation summary: {summary_path}")
     print(f"Wrote area summary: {areas_path}")
     print(f"Total added units: {total_added_units}")
     print(f"Parcels with added units: {parcels_with_added_units}")

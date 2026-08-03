@@ -4,7 +4,7 @@ This Boston simulator allocates housing units to Boston parcels where residentia
 
 ## Preprocessing
 
-The preprocessing pipeline lives in `preprocessing/`.
+The preprocessing pipeline lives in `preprocessing/`
 and is orchestrated by `preprocessing/run_data_prep.py`.
 
 It runs these steps in order:
@@ -41,7 +41,7 @@ After simulation completes, a post-processing step writes summary
 outputs:
 - `outputs/simulation_summary.csv`: summary of
 	total units added and number of parcels that received added units.
-- `outputs/simulation_added_units_by_area.csv`: where units were
+- `outputs/simulation_units_by_lu.csv`: where units were
 	added, summarized by land use category (`LU`).
 
 ### Future development
