@@ -10,4 +10,15 @@ w_market: 1.0
 w_cost: 1.0
 
 # Walkability scoring max network distance (meters)
+# currently ~1 mile
 max_walk_distance_m: 1600.0
+
+# Walkability distance decay shape: 1.0 is linear, >1 steepens decay, <1 slows decay
+distance_decay_exponent: 2.0
+
+# Synthetic amenity thresholds: lower values create more amenities per added unit
+synthetic_units_per_food: 120.0
+synthetic_units_per_grocery: 300.0
+synthetic_units_per_park: 450.0
+synthetic_units_per_transit: 700.0
+synthetic_units_per_education: 1200.0

@@ -42,6 +42,8 @@ def ensure_required_input_columns(
     repo_root: Path,
     working_csv: Path,
     max_walk_distance_m: float,
+    distance_decay_exponent: float,
+    synthetic_units_per_feature: dict[str, float],
 ) -> None:
     """Ensure allocation prerequisites exist, auto-building selected missing columns."""
     probe = pd.read_csv(working_csv, nrows=1, low_memory=False)
@@ -74,7 +76,11 @@ def ensure_required_input_columns(
             str(working_csv),
             "--max-walk-distance-m",
             str(max_walk_distance_m),
+            "--distance-decay-exponent",
+            str(distance_decay_exponent),
         ]
+        for category, units_per_feature in synthetic_units_per_feature.items():
+            walkability_cmd.extend(["--synthetic-units-per-feature", f"{category}={units_per_feature}"])
         print(f"\n{'=' * 72}")
         print("Preflight: add neighborhood_walkability")
         print("Command:", " ".join(walkability_cmd))
@@ -157,6 +163,14 @@ def main() -> None:
     w_market = float(config.get("w_market", 1.0))
     w_cost = float(config.get("w_cost", 1.0))
     max_walk_distance_m = float(config.get("max_walk_distance_m", 1600.0))
+    distance_decay_exponent = float(config.get("distance_decay_exponent", 1.0))
+    synthetic_units_per_feature = {
+        "food": float(config.get("synthetic_units_per_food", 120.0)),
+        "grocery": float(config.get("synthetic_units_per_grocery", 300.0)),
+        "park": float(config.get("synthetic_units_per_park", 450.0)),
+        "transit": float(config.get("synthetic_units_per_transit", 700.0)),
+        "education": float(config.get("synthetic_units_per_education", 1200.0)),
+    }
 
     if total_units < 0:
         raise ValueError("units_to_add must be >= 0")
@@ -164,6 +178,16 @@ def main() -> None:
         raise ValueError("time_steps must be >= 1")
     if max_walk_distance_m <= 0:
         raise ValueError("max_walk_distance_m must be > 0")
+    if distance_decay_exponent <= 0:
+        raise ValueError("distance_decay_exponent must be > 0")
+    invalid_thresholds = [
+        category for category, units_per_feature in synthetic_units_per_feature.items() if units_per_feature <= 0
+    ]
+    if invalid_thresholds:
+        raise ValueError(
+            "Synthetic amenity thresholds must be > 0 for all categories. Invalid: "
+            f"{invalid_thresholds}"
+        )
 
     units_per_step = allocate_units_by_step(total_units, time_steps)
 
@@ -177,6 +201,8 @@ def main() -> None:
         repo_root=repo_root,
         working_csv=working_csv,
         max_walk_distance_m=max_walk_distance_m,
+        distance_decay_exponent=distance_decay_exponent,
+        synthetic_units_per_feature=synthetic_units_per_feature,
     )
 
     model_path = require_existing_path(args.hedonic_model_path, "Hedonic model")
@@ -201,6 +227,8 @@ def main() -> None:
             repo_root=repo_root,
             working_csv=working_csv,
             max_walk_distance_m=max_walk_distance_m,
+            distance_decay_exponent=distance_decay_exponent,
+            synthetic_units_per_feature=synthetic_units_per_feature,
         )
 
         current = run_hedonic_update_step(working_csv=working_csv, model=fixed_hedonic_model)

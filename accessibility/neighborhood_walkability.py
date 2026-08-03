@@ -25,6 +25,15 @@ from preprocessing.utils import (
 from shared_utils import require_existing_path
 
 
+DEFAULT_SYNTHETIC_AMENITY_UNITS_PER_FEATURE: dict[str, float] = {
+    "food": 120.0,
+    "grocery": 300.0,
+    "park": 450.0,
+    "transit": 700.0,
+    "education": 1200.0,
+}
+
+
 def parse_args() -> argparse.Namespace:
     repo_root = REPO_ROOT
 
@@ -56,6 +65,12 @@ def parse_args() -> argparse.Namespace:
         help="Distance where category score decays to zero.",
     )
     parser.add_argument(
+        "--distance-decay-exponent",
+        type=float,
+        default=1.0,
+        help="Power applied to the normalized walk-distance decay curve. 1.0 is linear; lower values slow decay and higher values steepen it.",
+    )
+    parser.add_argument(
         "--sample-size",
         type=int,
         default=0,
@@ -67,10 +82,19 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional parcel column used to create synthetic amenities near new housing.",
     )
+    parser.add_argument(
+        "--synthetic-units-per-feature",
+        action="append",
+        default=None,
+        help="Override synthetic amenity thresholds as category=units_per_feature. Repeat per category.",
+    )
 
     args = parser.parse_args()
     args.parcels_csv = require_existing_path(args.parcels_csv, "Parcels CSV")
     args.output_csv = args.output_csv.expanduser().resolve()
+    if args.distance_decay_exponent <= 0:
+        raise ValueError("distance_decay_exponent must be > 0")
+    args.synthetic_units_per_feature = parse_synthetic_units_per_feature(args.synthetic_units_per_feature)
     return args
 
 
@@ -83,9 +107,14 @@ AMENITY_TAGS: dict[str, dict[str, object]] = {
 }
 
 
-def _linear_distance_score(distance_m: pd.Series, max_distance_m: float) -> pd.Series:
-    """Convert distances to 0-100 scores with linear decay."""
-    score = 100.0 * (1.0 - (distance_m / max_distance_m))
+def _linear_distance_score(
+    distance_m: pd.Series,
+    max_distance_m: float,
+    distance_decay_exponent: float,
+) -> pd.Series:
+    """Convert distances to 0-100 scores with configurable power decay."""
+    normalized_distance = (distance_m / max_distance_m).clip(lower=0.0)
+    score = 100.0 * (1.0 - np.power(normalized_distance, distance_decay_exponent))
     return score.clip(lower=0.0, upper=100.0).where(distance_m.notna())
 
 
@@ -127,20 +156,36 @@ def _download_amenity_points(parcel_points: gpd.GeoDataFrame) -> gpd.GeoDataFram
     return pd.concat(amenity_frames, ignore_index=True)
 
 
-SYNTHETIC_AMENITY_UNITS_PER_FEATURE: dict[str, float] = {
-    "food": 120.0,
-    "grocery": 300.0,
-    "park": 450.0,
-    "transit": 700.0,
-    "education": 1200.0,
-}
 SYNTHETIC_AMENITY_JITTER_M = 100.0
+
+
+def parse_synthetic_units_per_feature(raw_values: list[str] | None) -> dict[str, float]:
+    values = DEFAULT_SYNTHETIC_AMENITY_UNITS_PER_FEATURE.copy()
+    if not raw_values:
+        return values
+
+    for raw_value in raw_values:
+        if "=" not in raw_value:
+            raise ValueError("Synthetic amenity threshold overrides must use category=value format.")
+        category, raw_units = raw_value.split("=", 1)
+        category = category.strip().lower()
+        if category not in values:
+            raise ValueError(
+                "Unknown synthetic amenity category "
+                f"'{category}'. Expected one of {sorted(values)}."
+            )
+        units_per_feature = float(raw_units)
+        if units_per_feature <= 0:
+            raise ValueError(f"Synthetic amenity threshold must be > 0 for category '{category}'.")
+        values[category] = units_per_feature
+    return values
 
 
 def _build_synthetic_amenities(
     parcel_points: gpd.GeoDataFrame,
     growth_column: str | None,
     graph_crs: str,
+    synthetic_units_per_feature: dict[str, float],
 ) -> gpd.GeoDataFrame:
     """Create small synthetic amenity clusters near parcels with new housing."""
     if not growth_column or growth_column not in parcel_points.columns:
@@ -158,7 +203,7 @@ def _build_synthetic_amenities(
     rng = np.random.default_rng(42)
 
     synthetic_frames: list[gpd.GeoDataFrame] = []
-    for category, units_per_feature in SYNTHETIC_AMENITY_UNITS_PER_FEATURE.items():
+    for category, units_per_feature in synthetic_units_per_feature.items():
         feature_count = int(np.floor(total_growth / units_per_feature))
         if feature_count <= 0:
             continue
@@ -211,7 +256,12 @@ def main() -> None:
     amenities = _download_amenity_points(parcel_points)
     amenities = gpd.GeoDataFrame(amenities, geometry="geometry", crs="EPSG:4326").to_crs(graph_crs)
 
-    synthetic_amenities = _build_synthetic_amenities(parcel_points, args.housing_growth_column, graph_crs)
+    synthetic_amenities = _build_synthetic_amenities(
+        parcel_points,
+        args.housing_growth_column,
+        graph_crs,
+        args.synthetic_units_per_feature,
+    )
     if not synthetic_amenities.empty:
         print(f"Adding {len(synthetic_amenities):,} synthetic amenities from housing growth...")
         amenities = pd.concat([amenities, synthetic_amenities], ignore_index=True)
@@ -242,7 +292,11 @@ def main() -> None:
             weight="length",
         )
         parcel_distances = parcel_node_series.map(distances_to_targets)
-        category_score = _linear_distance_score(parcel_distances.astype(float), args.max_walk_distance_m)
+        category_score = _linear_distance_score(
+            parcel_distances.astype(float),
+            args.max_walk_distance_m,
+            args.distance_decay_exponent,
+        )
         category_score.name = f"walk_{category}_score"
         category_scores.append(category_score)
 
