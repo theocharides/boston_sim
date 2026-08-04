@@ -18,7 +18,11 @@ project parcel table.
 - Joins tract income to parcel points as `median_hh_income`.
 - Requires a Census API key (`CENSUS_API_KEY` environment variable or `--census-api-key`).
 
-4. `steps/add_employment_dist.py`
+4. `steps/add_neighborhood.py`
+- Spatially joins Boston neighborhood boundaries to parcel points.
+- Adds `neighborhood_name` (and optional neighborhood ID if available).
+
+5. `steps/add_employment_dist.py`
 - Computes straight-line distance in meters from each parcel to the nearest
 	employment center/CBD.
 - Writes `emp_dist_m`.
@@ -37,6 +41,7 @@ Run these scripts in sequence when building the table manually:
 ```bash
 python preprocessing/steps/clean_parcels.py
 python preprocessing/steps/add_zoning.py
+python preprocessing/steps/add_neighborhood.py
 python preprocessing/steps/add_income.py
 python preprocessing/steps/add_employment_dist.py
 ```
@@ -59,6 +64,7 @@ Common raw inputs:
 - `preprocessing/raw_data/boston_parcel_assessors.csv`
 - `preprocessing/raw_data/boston_parcel_shapes.geojson`
 - `preprocessing/raw_data/boston_zoning_subdistricts/Boston_Zoning_Subdistricts.shp`
+- `preprocessing/raw_data/boston_neighborhood_boundaries.geojson`
 
 Primary working output table:
 - `parcels_preprocessed.csv` (written at the repository root)

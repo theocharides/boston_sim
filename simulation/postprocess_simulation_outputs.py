@@ -15,6 +15,9 @@ if __package__ in {None, ""}:
 from shared_utils import require_existing_path
 
 
+RESIDENTIAL_LU_CODES = {"A", "CD", "CM", "R1", "R2", "R3", "R4", "RC", "RL"}
+
+
 def parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parents[1]
 
@@ -58,6 +61,13 @@ def choose_area_column(df: pd.DataFrame) -> str:
     return "LU"
 
 
+def choose_neighborhood_column(df: pd.DataFrame) -> str | None:
+    """Use neighborhood_name for neighborhood summaries when available."""
+    if "neighborhood_name" in df.columns:
+        return "neighborhood_name"
+    return None
+
+
 def first_non_empty(values: pd.Series) -> str:
     cleaned = values.astype("string").fillna("").str.strip()
     non_empty = cleaned[cleaned != ""]
@@ -83,6 +93,7 @@ def main() -> None:
     parcels_with_added_units = int((df["allocated_units"] > 0).sum())
 
     area_column = choose_area_column(df)
+    neighborhood_column = choose_neighborhood_column(df)
     developed = df[df["allocated_units"] > 0].copy()
 
     if developed.empty:
@@ -117,9 +128,64 @@ def main() -> None:
         area_summary.insert(0, "area_type", area_column)
         area_summary = area_summary.sort_values("units_added", ascending=False).reset_index(drop=True)
 
+    if developed.empty:
+        neighborhood_summary = pd.DataFrame(
+            columns=[
+                "neighborhood_name",
+                "parcels_with_added_units",
+                "units_added",
+                "share_of_added_units",
+                "mean_walkability",
+                "mean_residential_total_value",
+            ]
+        )
+    else:
+        if neighborhood_column is None:
+            neighborhood_grouping = pd.Series("Unknown", index=developed.index, dtype="string")
+        else:
+            neighborhood_grouping = (
+                developed[neighborhood_column].astype("string").fillna("Unknown").replace("", "Unknown")
+            )
+        walkability_numeric = pd.to_numeric(developed.get("neighborhood_walkability"), errors="coerce")
+        total_value_numeric = pd.to_numeric(developed.get("TOTAL_VALUE"), errors="coerce")
+        residential_mask = (
+            developed.get("LU", pd.Series("", index=developed.index))
+            .astype("string")
+            .fillna("")
+            .str.strip()
+            .str.upper()
+            .isin(RESIDENTIAL_LU_CODES)
+        )
+        residential_total_value = total_value_numeric.where(residential_mask)
+        neighborhood_summary = (
+            developed.assign(
+                _neighborhood_name=neighborhood_grouping,
+                _walkability=walkability_numeric,
+                _residential_total_value=residential_total_value,
+            )
+            .groupby("_neighborhood_name", as_index=False)
+            .agg(
+                parcels_with_added_units=("PID", "count") if "PID" in developed.columns else ("allocated_units", "size"),
+                units_added=("allocated_units", "sum"),
+                mean_walkability=("_walkability", "mean"),
+                mean_residential_total_value=("_residential_total_value", "mean"),
+            )
+            .rename(columns={"_neighborhood_name": "neighborhood_name"})
+        )
+        neighborhood_summary["units_added"] = neighborhood_summary["units_added"].round().astype("int64")
+        neighborhood_summary["share_of_added_units"] = (
+            neighborhood_summary["units_added"] / float(total_added_units if total_added_units > 0 else 1)
+        ).round(6)
+        neighborhood_summary["mean_walkability"] = neighborhood_summary["mean_walkability"].round(4)
+        neighborhood_summary["mean_residential_total_value"] = (
+            neighborhood_summary["mean_residential_total_value"].round(2)
+        )
+        neighborhood_summary = neighborhood_summary.sort_values("units_added", ascending=False).reset_index(drop=True)
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = args.output_dir / "simulation_summary.csv"
     areas_path = args.output_dir / "simulation_units_by_lu.csv"
+    neighborhoods_path = args.output_dir / "simulation_units_by_neighborhood.csv"
 
     if args.step_summaries_json is not None:
         with args.step_summaries_json.open("r", encoding="utf-8") as stream:
@@ -129,10 +195,12 @@ def main() -> None:
         pd.DataFrame(step_summaries).to_csv(summary_path, index=False)
 
     area_summary.to_csv(areas_path, index=False)
+    neighborhood_summary.to_csv(neighborhoods_path, index=False)
 
     if args.step_summaries_json is not None:
         print(f"Wrote simulation summary: {summary_path}")
     print(f"Wrote area summary: {areas_path}")
+    print(f"Wrote neighborhood summary: {neighborhoods_path}")
     print(f"Total added units: {total_added_units}")
     print(f"Parcels with added units: {parcels_with_added_units}")
 

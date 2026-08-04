@@ -10,8 +10,9 @@ and is orchestrated by `preprocessing/run_data_prep.py`.
 It runs these steps in order:
 1. `clean_parcels.py` builds one row per parcel from assessor and geometry data.
 2. `add_zoning.py` adds zoning fields to the table.
-3. `add_income.py` joins tract-level median household income using the Census API.
-4. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
+3. `add_neighborhood.py` adds Boston neighborhood tags from neighborhood boundaries.
+4. `add_income.py` joins tract-level median household income using the Census API.
+5. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
 
 The preprocessing output is stored as `outputs/parcels_preprocessed.csv`.
 
@@ -43,6 +44,8 @@ outputs:
 	total units added and number of parcels that received added units.
 - `outputs/simulation_units_by_lu.csv`: where units were
 	added, summarized by land use category (`LU`).
+- `outputs/simulation_units_by_neighborhood.csv`: where units were
+	added, summarized by neighborhood.
 
 ### Future development
 1. Use a location choice model to add new ammenities.

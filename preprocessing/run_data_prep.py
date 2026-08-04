@@ -4,8 +4,9 @@ Master pipeline orchestrator for parcel data preprocessing.
 This script runs all preprocessing steps in sequence:
 1. clean_parcels.py - Collapse assessor data to parcel level
 2. add_zoning.py - Add zoning attributes via spatial join
-3. add_income.py - Add tract median household income
-4. add_employment_dist.py - Add employment center distances
+3. add_neighborhood.py - Add Boston neighborhood tag via spatial join
+4. add_income.py - Add tract median household income
+5. add_employment_dist.py - Add employment center distances
 
 Each step reads the output of the previous step and adds new columns,
 producing one canonical preprocessed table.
@@ -67,6 +68,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to zoning subdistrict shapefile.",
     )
     parser.add_argument(
+        "--neighborhood-geojson",
+        type=Path,
+        default=repo_root / "preprocessing" / "raw_data" / "boston_neighborhood_boundaries.geojson",
+        help="Path to Boston neighborhood boundary GeoJSON.",
+    )
+    parser.add_argument(
         "--output-csv",
         type=Path,
         default=repo_root / "outputs" / "parcels_preprocessed.csv",
@@ -88,6 +95,7 @@ def parse_args() -> argparse.Namespace:
     args.raw_assessors = require_existing_path(args.raw_assessors, "Raw assessor CSV")
     args.raw_parcel_shapes = require_existing_path(args.raw_parcel_shapes, "Raw parcel shapes")
     args.zoning_shapefile = require_existing_path(args.zoning_shapefile, "Zoning shapefile")
+    args.neighborhood_geojson = require_existing_path(args.neighborhood_geojson, "Neighborhood boundaries")
     args.output_csv = args.output_csv.expanduser().resolve()
     return args
 
@@ -118,7 +126,16 @@ def main() -> None:
         output_csv=final_csv,
     )
     
-    # Step 3: Add tract income (optional)
+    # Step 3: Add neighborhood tag
+    run_step(
+        "add_neighborhood.py",
+        steps_dir / "add_neighborhood.py",
+        parcels_csv=final_csv,
+        neighborhood_geojson=args.neighborhood_geojson,
+        output_csv=final_csv,
+    )
+
+    # Step 4: Add tract income (optional)
     if args.skip_income:
         print("\nSkipping add_income.py (--skip-income set).")
     else:
@@ -135,7 +152,7 @@ def main() -> None:
             **income_kwargs,
         )
 
-    # Step 4: Add employment distance
+    # Step 5: Add employment distance
     run_step(
         "add_employment_dist.py",
         steps_dir / "add_employment_dist.py",
