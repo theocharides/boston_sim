@@ -184,7 +184,7 @@ def build_ridge_pipeline(
     return Pipeline(
         steps=[
             ("preprocess", preprocess),
-            ("ridge", Ridge(alpha=1.0, random_state=42)),
+            ("ridge", Ridge(alpha=1.0, solver="svd", random_state=42)),
         ]
     )
 

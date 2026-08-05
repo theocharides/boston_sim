@@ -1,0 +1,19 @@
+{
+  "name": "residential_level_best_selected",
+  "selected_from": "C:/Users/etheo/projects/boston_sim/boston_sim/hedonic/artifacts/residential_hedonic_model_comparison.csv",
+  "selection_criterion": "highest r2_level, tie-break highest r2_log, excluding errored rows",
+  "features": [
+    "LAND_SF",
+    "neighborhood_walkability",
+    "emp_dist_m",
+    "INT_COND"
+  ],
+  "metrics_snapshot": {
+    "r2_log": 0.2832791451204938,
+    "rmse_log": 0.6099669903966646,
+    "r2_level": 0.1484763572706552,
+    "mae_level": 950233.7761125444,
+    "rows_train": 16000,
+    "rows_test": 4000
+  }
+}

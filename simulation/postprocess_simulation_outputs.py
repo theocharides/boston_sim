@@ -42,6 +42,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional JSON file containing per-step simulation summaries.",
     )
+    parser.add_argument(
+        "--neighborhood-step-summaries-json",
+        type=Path,
+        default=None,
+        help="Optional JSON file containing per-step neighborhood summaries.",
+    )
+    parser.add_argument(
+        "--lu-step-summaries-json",
+        type=Path,
+        default=None,
+        help="Optional JSON file containing per-step land-use summaries.",
+    )
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Simulated parcels CSV")
@@ -50,6 +62,16 @@ def parse_args() -> argparse.Namespace:
         args.step_summaries_json = require_existing_path(
             args.step_summaries_json,
             "Step summaries JSON",
+        )
+    if args.neighborhood_step_summaries_json is not None:
+        args.neighborhood_step_summaries_json = require_existing_path(
+            args.neighborhood_step_summaries_json,
+            "Neighborhood step summaries JSON",
+        )
+    if args.lu_step_summaries_json is not None:
+        args.lu_step_summaries_json = require_existing_path(
+            args.lu_step_summaries_json,
+            "Land-use step summaries JSON",
         )
     return args
 
@@ -194,11 +216,39 @@ def main() -> None:
             raise ValueError("Step summaries JSON must contain a list of objects.")
         pd.DataFrame(step_summaries).to_csv(summary_path, index=False)
 
+    if args.neighborhood_step_summaries_json is not None:
+        with args.neighborhood_step_summaries_json.open("r", encoding="utf-8") as stream:
+            neighborhood_step_summaries = json.load(stream)
+        if not isinstance(neighborhood_step_summaries, list):
+            raise ValueError("Neighborhood step summaries JSON must contain a list of objects.")
+        neighborhood_summary = pd.DataFrame(neighborhood_step_summaries)
+        if not neighborhood_summary.empty and "step" in neighborhood_summary.columns:
+            neighborhood_summary = neighborhood_summary.sort_values(
+                ["step", "units_added"],
+                ascending=[True, False],
+            ).reset_index(drop=True)
+
+    if args.lu_step_summaries_json is not None:
+        with args.lu_step_summaries_json.open("r", encoding="utf-8") as stream:
+            lu_step_summaries = json.load(stream)
+        if not isinstance(lu_step_summaries, list):
+            raise ValueError("Land-use step summaries JSON must contain a list of objects.")
+        area_summary = pd.DataFrame(lu_step_summaries)
+        if not area_summary.empty and "step" in area_summary.columns:
+            area_summary = area_summary.sort_values(
+                ["step", "units_added"],
+                ascending=[True, False],
+            ).reset_index(drop=True)
+
     area_summary.to_csv(areas_path, index=False)
     neighborhood_summary.to_csv(neighborhoods_path, index=False)
 
     if args.step_summaries_json is not None:
         print(f"Wrote simulation summary: {summary_path}")
+    if args.neighborhood_step_summaries_json is not None:
+        print("Wrote neighborhood summary with timestep rows")
+    if args.lu_step_summaries_json is not None:
+        print("Wrote land-use summary with timestep rows")
     print(f"Wrote area summary: {areas_path}")
     print(f"Wrote neighborhood summary: {neighborhoods_path}")
     print(f"Total added units: {total_added_units}")

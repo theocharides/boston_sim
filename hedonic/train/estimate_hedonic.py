@@ -5,14 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from hedonic.common.modeling_common import (
     LOC_NEIGHBORHOOD_FEATURES,
-    TARGET_COL,
     STRUCTURAL_FEATURES,
+    TARGET_COL,
     available_features,
     build_ridge_pipeline,
     evaluate_log_and_level,
@@ -56,11 +57,76 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Random seed for train/test split.",
     )
+    parser.add_argument(
+        "--feature-list",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated feature list to train on. "
+            "Example: LAND_SF,neighborhood_walkability,emp_dist_m,INT_COND"
+        ),
+    )
+    parser.add_argument(
+        "--feature-spec-json",
+        type=Path,
+        default=None,
+        help=(
+            "Optional JSON file containing selected features under a 'features' key "
+            "or as a top-level string array."
+        ),
+    )
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Parcel CSV")
     args.output_dir = args.output_dir.expanduser().resolve()
+    if args.feature_spec_json is not None:
+        args.feature_spec_json = require_existing_path(args.feature_spec_json, "Feature spec JSON")
     return args
+
+
+def _parse_feature_spec_json(path: Path) -> list[str]:
+    raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(raw, list):
+        values = raw
+    elif isinstance(raw, dict) and isinstance(raw.get("features"), list):
+        values = raw["features"]
+    else:
+        raise ValueError(
+            "Feature spec JSON must be a list of feature names or an object with a 'features' list."
+        )
+
+    parsed = [str(value).strip() for value in values if str(value).strip()]
+    if not parsed:
+        raise ValueError("Feature spec JSON did not contain any feature names.")
+    return parsed
+
+
+def resolve_feature_set(df: pd.DataFrame, args: argparse.Namespace) -> tuple[list[str], str]:
+    if args.feature_list:
+        selected = [value.strip() for value in args.feature_list.split(",") if value.strip()]
+        if not selected:
+            raise ValueError("--feature-list was provided but no feature names were parsed.")
+        source = "--feature-list"
+    elif args.feature_spec_json is not None:
+        selected = _parse_feature_spec_json(args.feature_spec_json)
+        source = f"--feature-spec-json ({args.feature_spec_json})"
+    else:
+        candidate_features = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
+        selected = candidate_features
+        source = "default feature pools (STRUCTURAL_FEATURES + LOC_NEIGHBORHOOD_FEATURES)"
+
+    existing_features = available_features(df, selected)
+    if not existing_features:
+        raise ValueError(
+            "No selected features were found in the input CSV. "
+            f"Requested: {selected}"
+        )
+
+    missing = [feature for feature in selected if feature not in existing_features]
+    if missing:
+        print(f"Warning: selected features not found in input and excluded: {missing}")
+
+    return existing_features, source
 
 
 def main() -> None:
@@ -76,12 +142,14 @@ def main() -> None:
     if target_col not in df.columns:
         raise ValueError(f"Required target column missing: {target_col}")
 
-    candidate_features = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
-    existing_features = available_features(df, candidate_features)
+    existing_features, feature_source = resolve_feature_set(df, args)
     numeric_features, categorical_features = infer_feature_types(df, existing_features)
     all_features = [*numeric_features, *categorical_features]
     if not all_features:
         raise ValueError("No model features found in input CSV.")
+
+    print(f"Using feature source: {feature_source}")
+    print("Using features:", ", ".join(all_features))
 
     model_df = prepare_model_df(
         df,
@@ -117,6 +185,8 @@ def main() -> None:
         "rows_train": int(len(X_train)),
         "rows_test": int(len(X_test)),
         "target": target_col,
+        "feature_source": feature_source,
+        "selected_features": all_features,
         "numeric_features": numeric_features,
         "categorical_features": categorical_features,
         "r2_log": eval_metrics["r2_log"],

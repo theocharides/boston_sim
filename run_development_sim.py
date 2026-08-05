@@ -38,6 +38,9 @@ from simulation.steps.step_02_walkability_update import run as run_walkability_u
 from simulation.steps.step_03_hedonic_update import run as run_hedonic_update_step
 
 
+RESIDENTIAL_LU_CODES = {"A", "CD", "CM", "R1", "R2", "R3", "R4", "RC", "RL"}
+
+
 def ensure_required_input_columns(
     repo_root: Path,
     working_csv: Path,
@@ -210,6 +213,8 @@ def main() -> None:
     print(f"Using fixed hedonic model: {model_path}")
 
     summaries: list[dict[str, object]] = []
+    neighborhood_step_summaries: list[dict[str, object]] = []
+    lu_step_summaries: list[dict[str, object]] = []
     cumulative_allocated = 0
 
     for step, units_this_step in enumerate(units_per_step, start=1):
@@ -253,6 +258,92 @@ def main() -> None:
             }
         )
 
+        neighborhood_column = "neighborhood_name" if "neighborhood_name" in current.columns else None
+        step_rows = current.copy()
+        if neighborhood_column is None:
+            step_rows["_neighborhood_name"] = "Unknown"
+        else:
+            step_rows["_neighborhood_name"] = (
+                step_rows[neighborhood_column].astype("string").fillna("Unknown").replace("", "Unknown")
+            )
+
+        step_rows["_allocated_units"] = pd.to_numeric(step_rows.get("allocated_units"), errors="coerce").fillna(0)
+        step_rows["_walkability"] = pd.to_numeric(step_rows.get("neighborhood_walkability"), errors="coerce")
+        step_rows["_total_value"] = pd.to_numeric(step_rows.get(TARGET_COL), errors="coerce")
+        lu_series = step_rows["LU"] if "LU" in step_rows.columns else pd.Series("", index=step_rows.index)
+        step_rows["_is_residential"] = (
+            lu_series.astype("string").fillna("").str.strip().str.upper().isin(RESIDENTIAL_LU_CODES)
+        )
+        step_rows["_residential_total_value"] = step_rows["_total_value"].where(step_rows["_is_residential"])
+
+        step_developed = step_rows[step_rows["_allocated_units"] > 0].copy()
+        if step_developed.empty:
+            neighborhood_step_summaries.append(
+                {
+                    "step": step,
+                    "neighborhood_name": "Unknown",
+                    "parcels_with_added_units": 0,
+                    "units_added": 0,
+                    "share_of_added_units": 0.0,
+                    "mean_walkability": None,
+                    "mean_residential_total_value": None,
+                }
+            )
+            lu_step_summaries.append(
+                {
+                    "step": step,
+                    "area_type": "LU",
+                    "area_name": "Unknown",
+                    "area_description": "Unknown",
+                    "parcels_with_added_units": 0,
+                    "units_added": 0,
+                    "share_of_added_units": 0.0,
+                }
+            )
+        else:
+            total_step_added_units = float(step_developed["_allocated_units"].sum())
+            by_neighborhood = (
+                step_developed.groupby("_neighborhood_name", as_index=False)
+                .agg(
+                    parcels_with_added_units=("PID", "count") if "PID" in step_developed.columns else ("_allocated_units", "size"),
+                    units_added=("_allocated_units", "sum"),
+                    mean_walkability=("_walkability", "mean"),
+                    mean_residential_total_value=("_residential_total_value", "mean"),
+                )
+                .rename(columns={"_neighborhood_name": "neighborhood_name"})
+            )
+            by_neighborhood["units_added"] = by_neighborhood["units_added"].round().astype("int64")
+            denominator = total_step_added_units if total_step_added_units > 0 else 1.0
+            by_neighborhood["share_of_added_units"] = (by_neighborhood["units_added"] / denominator).round(6)
+            by_neighborhood["mean_walkability"] = by_neighborhood["mean_walkability"].round(4)
+            by_neighborhood["mean_residential_total_value"] = (
+                by_neighborhood["mean_residential_total_value"].round(2)
+            )
+            by_neighborhood = by_neighborhood.sort_values("units_added", ascending=False).reset_index(drop=True)
+
+            for row in by_neighborhood.to_dict(orient="records"):
+                neighborhood_step_summaries.append({"step": step, **row})
+
+            area_grouping = step_developed["LU"].astype("string").fillna("Unknown").replace("", "Unknown")
+            description_source = step_developed["LU_DESC"] if "LU_DESC" in step_developed.columns else area_grouping
+            by_area = (
+                step_developed.assign(_area_name=area_grouping, _area_description=description_source)
+                .groupby("_area_name", as_index=False)
+                .agg(
+                    area_description=("_area_description", lambda values: str(values.astype("string").fillna("").str.strip()[values.astype("string").fillna("").str.strip() != ""].iloc[0]) if (values.astype("string").fillna("").str.strip() != "").any() else "Unknown"),
+                    parcels_with_added_units=("PID", "count") if "PID" in step_developed.columns else ("_allocated_units", "size"),
+                    units_added=("_allocated_units", "sum"),
+                )
+                .rename(columns={"_area_name": "area_name"})
+            )
+            by_area["units_added"] = by_area["units_added"].round().astype("int64")
+            by_area["share_of_added_units"] = (by_area["units_added"] / denominator).round(6)
+            by_area.insert(0, "area_type", "LU")
+            by_area = by_area.sort_values("units_added", ascending=False).reset_index(drop=True)
+
+            for row in by_area.to_dict(orient="records"):
+                lu_step_summaries.append({"step": step, **row})
+
         print(
             f"Step {step} complete | requested={units_this_step} allocated={allocated_now} "
             f"cumulative={cumulative_allocated}"
@@ -265,6 +356,12 @@ def main() -> None:
     step_summaries_path = args.run_dir / "step_summaries.json"
     with step_summaries_path.open("w", encoding="utf-8") as stream:
         json.dump(summaries, stream, ensure_ascii=True, indent=2)
+    neighborhood_step_summaries_path = args.run_dir / "neighborhood_step_summaries.json"
+    with neighborhood_step_summaries_path.open("w", encoding="utf-8") as stream:
+        json.dump(neighborhood_step_summaries, stream, ensure_ascii=True, indent=2)
+    lu_step_summaries_path = args.run_dir / "lu_step_summaries.json"
+    with lu_step_summaries_path.open("w", encoding="utf-8") as stream:
+        json.dump(lu_step_summaries, stream, ensure_ascii=True, indent=2)
 
     postprocess_script = repo_root / "simulation" / "postprocess_simulation_outputs.py"
     postprocess_cmd = [
@@ -276,6 +373,10 @@ def main() -> None:
         str(args.run_dir),
         "--step-summaries-json",
         str(step_summaries_path),
+        "--neighborhood-step-summaries-json",
+        str(neighborhood_step_summaries_path),
+        "--lu-step-summaries-json",
+        str(lu_step_summaries_path),
     ]
     print(f"\n{'=' * 72}")
     print("Post-process: summarize added units")
@@ -283,6 +384,8 @@ def main() -> None:
     print(f"{'=' * 72}")
     subprocess.run(postprocess_cmd, check=True)
     step_summaries_path.unlink(missing_ok=True)
+    neighborhood_step_summaries_path.unlink(missing_ok=True)
+    lu_step_summaries_path.unlink(missing_ok=True)
 
     print("\nSimulation complete")
     print(f"Input parcels: {args.parcels_csv}")
