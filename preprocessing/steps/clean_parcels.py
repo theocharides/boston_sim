@@ -30,7 +30,7 @@ import geopandas as gpd
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from preprocessing.utils import clean_numeric
+from preprocessing.utils import clean_numeric, clean_year_series
 from shared_utils import require_existing_path
 
 
@@ -72,6 +72,10 @@ OUTPUT_COLUMNS: list[str] = [
 ]
 
 CONDO_LU_CODES = {"CD", "CP", "CC", "CM"}
+
+KNOWN_PARCEL_FIXES: dict[str, dict[str, float]] = {
+    "1701545000": {"YR_BUILT": 2019.0},
+}
 
 # Columns to sum for condos
 SUM_COLUMNS = {
@@ -186,7 +190,10 @@ def main() -> None:
     if numeric_columns:
         print(f"Parsing numeric columns ({len(numeric_columns)})...")
         for col in numeric_columns:
-            matched[col] = clean_numeric(matched[col])
+            if col in {"YR_BUILT", "YR_REMODEL"}:
+                matched[col] = clean_year_series(matched[col])
+            else:
+                matched[col] = clean_numeric(matched[col])
 
     if text_columns:
         # Normalize blank strings once so groupby.first can skip them efficiently.
@@ -229,6 +236,13 @@ def main() -> None:
         if source_col != output_col
     }
     result = result.rename(columns=rename_map)
+
+    if KNOWN_PARCEL_FIXES:
+        for parcel_pid, overrides in KNOWN_PARCEL_FIXES.items():
+            parcel_mask = result["PID"].astype(str) == parcel_pid
+            for column_name, value in overrides.items():
+                if column_name in result.columns:
+                    result.loc[parcel_mask, column_name] = value
 
     # Derive average living area per unit where both inputs are available and units > 0.
     living_area = pd.to_numeric(result.get("LIVING_AREA"), errors="coerce")

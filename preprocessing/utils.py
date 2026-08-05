@@ -56,3 +56,24 @@ def clean_numeric(series: pd.Series) -> pd.Series:
     )
     as_text = as_text.replace({"": np.nan, "nan": np.nan, "None": np.nan})
     return pd.to_numeric(as_text, errors="coerce")
+
+
+def clean_year_series(series: pd.Series) -> pd.Series:
+    """Parse year fields and correct obvious single-digit suffix typos.
+
+    Known source correction: 20198 -> 2019.
+    """
+    raw_text = (
+        series.astype(str)
+        .str.replace(",", "", regex=False)
+        .str.replace("$", "", regex=False)
+        .str.strip()
+    )
+    raw_text = raw_text.replace({"": np.nan, "nan": np.nan, "None": np.nan, "20198": "2019"})
+    years = pd.to_numeric(raw_text, errors="coerce")
+    malformed_mask = (years >= 10000) & (years <= 99999)
+    if malformed_mask.any():
+        shortened = (years[malformed_mask] // 10).astype("Int64")
+        plausible_shortened = shortened.between(1600, 2030)
+        years.loc[malformed_mask[malformed_mask].index[plausible_shortened]] = shortened[plausible_shortened].astype(float)
+    return years
