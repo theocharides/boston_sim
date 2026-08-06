@@ -5,15 +5,15 @@ This folder contains scripts for estimating and comparing residential hedonic pr
 All scripts read from `parcels_preprocessed.csv` by default and subset to residential building types before modeling.
 
 ## Current Folder Layout
+**common/modeling_common.py**: shared feature pools and modeling utilities.
 
-- common/modeling_common.py: shared feature pools and modeling utilities.
-- train/estimate_hedonic.py: model training and artifact export.
-- compare_models.py: specification comparison.
-- fast_feature_analysis.py: quick feature screen.
+If you do not pass `--feature-spec-json` or `--feature-list`,
+`estimate_hedonic.py` uses the default pooled feature list from
+`common/modeling_common.py`.
 
 ## Selection And Training Pipeline
 
-
+**train/estimate_hedonic.py**: model training and artifact export.
 
 ### 1) Compare specs
 Compare candidate feature specifications.
@@ -37,21 +37,13 @@ Outputs:
 ### 3) Train with selected spec
 Train the production model using that selected spec file.
 ```bash
-python -m hedonic.train.estimate_hedonic \
+python -m hedonic.train.estimate_hedonic
 ```
 
 Outputs (in `hedonic/artifacts`):
 - `residential_hedonic_model.joblib`
 - `residential_hedonic_metrics.json`
 - `residential_hedonic_coefficients.csv`
-
-Notes:
-- If you do not pass `--feature-spec-json` or `--feature-list`,
-	`estimate_hedonic.py` uses the default pooled feature list from
-	`common/modeling_common.py`.
-- `residential_hedonic_metrics.json` records `feature_source` and
-	`selected_features` for provenance.
-
 
 If you trained a new model and want the simulation to use it explicitly:
 
