@@ -1,4 +1,26 @@
-"""Compute neighborhood walkability from OSM network distance to key amenities."""
+"""
+Compute neighborhood walkability from OSM network distance to key amenities. Distribute 
+amenities around new residential growth to include in the walkability score.
+
+The script workflow is:
+1. Read parcel geometry and convert parcels to representative points.
+2. Download a local walking network for the parcel extent.
+3. Download destination amenities from OpenStreetMap.
+4. Snap parcels and destinations to the network.
+5. Compute shortest-path network distance to nearest destination by category.
+6. Convert distances to category scores and average to one parcel score.
+
+Scoring notes:
+- Category scores decay linearly from 100 at 0 m to 0 at `--max-walk-distance-m`.
+- Final walkability is the mean of available category scores.
+- Parcels with no reachable destinations for sampled categories remain blank.
+
+How new amenities are chosen:
+- Parcels with more `allocated_units` are more likely to be selected.
+- Synthetic amenities are jittered a short distance around the selected growth
+  parcels so they appear nearby rather than on the exact parcel centroid.
+- The selection uses a fixed random seed so the pattern is reproducible.
+"""
 
 from __future__ import annotations
 

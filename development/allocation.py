@@ -1,4 +1,33 @@
-"""Score residential development opportunity and allocate units by parcel capacity."""
+"""
+Score residential development opportunity and allocate units by parcel capacity.
+
+# Scoring Logic
+- `additional_units = max(zoned_units - RES_UNITS, 0)`
+- `capacity_upside_score = percentile_rank(additional_units)`
+- `market_strength_score = mean(percentile_rank(median_hh_income),`
+  `percentile_rank(neighborhood_walkability),`
+  `percentile_rank(emp_dist_m, ascending=False))`
+- `acquisition_cost_intensity = TOTAL_VALUE / max(zoned_units, 1)`
+- `acquisition_cost_score = percentile_rank(acquisition_cost_intensity)`
+
+Final weighted score:
+- `opportunity_score = w_capacity * capacity_upside_score`
+  `+ w_market * market_strength_score`
+  `- w_cost * acquisition_cost_score`
+
+Parcels are labeled by score percentile among scored residential rows:
+- `high`: top 30% (`>= 0.70`)
+- `medium`: middle 40% (`0.30` to `< 0.70`)
+- `low`: bottom 30% (`< 0.30`)
+
+Allocation Rules
+- Parcels are sorted by `opportunity_score` (descending).
+- Only eligible parcels can receive units:
+  residential, scored, and `additional_units > 0`.
+- Each parcel is capped at its `additional_units`.
+- Allocation stops when `units_to_add` is fully assigned or no eligible
+  capacity remains.
+"""
 
 from __future__ import annotations
 
