@@ -168,8 +168,10 @@ def main() -> None:
             neighborhood_grouping = (
                 developed[neighborhood_column].astype("string").fillna("Unknown").replace("", "Unknown")
             )
-        walkability_numeric = pd.to_numeric(developed.get("neighborhood_walkability"), errors="coerce")
-        total_value_numeric = pd.to_numeric(developed.get("TOTAL_VALUE"), errors="coerce")
+        walkability_col = developed["neighborhood_walkability"] if "neighborhood_walkability" in developed.columns else pd.Series(float("nan"), index=developed.index)
+        walkability_numeric = pd.to_numeric(walkability_col, errors="coerce")
+        total_value_col = developed["TOTAL_VALUE"] if "TOTAL_VALUE" in developed.columns else pd.Series(float("nan"), index=developed.index)
+        total_value_numeric = pd.to_numeric(total_value_col, errors="coerce")
         residential_mask = (
             developed.get("LU", pd.Series("", index=developed.index))
             .astype("string")
