@@ -19,7 +19,7 @@ python -m hedonic.compare_models
 Output:
 - `hedonic/artifacts/residential_hedonic_model_comparison.csv`
 
-### Stage 2) Select a spec
+### 2) Select a spec
 Select one winning specification into a saved JSON spec file.
 
 ```bash
