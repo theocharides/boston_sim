@@ -1,6 +1,6 @@
 ## Overview
 
-This Boston simulator allocates housing units to Boston parcels where residential unit capacity exists. Residential units are allocated based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and ammenity growth. Parcel prices then update as parcel walkability scores change.
+This Boston simulator allocates housing units to Boston parcels where residential unit capacity exists. Residential units are allocated based on market strength and acquisition cost. The simulator recomputes neighborhood accessibility for each parcel based on housing and amenity growth. Parcel prices then update as parcel walkability scores change.
 
 ## Preprocessing
 
@@ -50,6 +50,5 @@ outputs:
 	added, summarized by neighborhood.
 
 ### Future development
-1. Use a location choice model to add new ammenities.
-2. Add a light visualizer to inspect simulation results.
-3. Make household income dynamic.
+1. Add prototype differentiation to development decisions, incorporating hedonic coefficients.
+2. Add an employment location choice model (supercede current amenity assignment). Housing development may be responsive to employment locations per the hedonic coefficient.
