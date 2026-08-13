@@ -2,7 +2,7 @@
 
 This folder contains scripts for estimating and comparing residential hedonic price models from parcel-level data.
 
-All scripts read from `parcels_preprocessed.csv` by default and subset to residential building types before modeling.
+All scripts read from `inputs/parcels_processed_for_hedonic.csv` by default and subset to residential building types before modeling.
 
 **common/modeling_common.py**: shared feature pools and modeling utilities.
 
@@ -10,41 +10,62 @@ If you do not pass features to `estimate_hedonic.py`, it uses the default featur
 
 **train/estimate_hedonic.py**: model training and artifact export.
 
-### 1) Compare specs
-Compare candidate feature specifications.
+## Single-purpose workflow
+
+Each step below has one script location:
+- Feature selection: `hedonic/select_model.py`
+- Final model estimation: `hedonic/train/estimate_hedonic.py`
+- Cross-validation reporting: `hedonic/run_cross_validation.py`
+
+### 1) Select features
+Compare many candidate feature specifications, save performance results, and write the selected feature spec JSON.
 
 ```bash
-python -m hedonic.compare_models 
-```
-Output:
-- `hedonic/artifacts/residential_hedonic_model_comparison.csv`
-
-### 2) Select a spec
-Select one winning specification into a saved JSON spec file.
-
-```bash
-python -m hedonic.train.select_spec 
+python -m hedonic.select_model
 ```
 Outputs:
+- `hedonic/artifacts/residential_hedonic_model_comparison.csv`
 - `hedonic/artifacts/residential_hedonic_selected_spec.json`
-- Selected feature list and snapshot metrics recorded in that JSON.
 
-### 3) Train with selected spec
-Train the production model using that selected spec file.
+Optional: require `neighborhood_walkability` in every tested combination.
 ```bash
-python -m hedonic.train.estimate_hedonic
+python -m hedonic.select_model --require-walkability
 ```
 
-Optional: enable K-fold cross-validation during training.
+Recommended for larger feature pools: cap feature count to keep the search tractable.
 ```bash
-python -m hedonic.train.estimate_hedonic --cv-folds 5
+python -m hedonic.select_model --require-walkability --max-features 6
+```
+
+Optional: override the hard safety cap on total combinations.
+```bash
+python -m hedonic.select_model --max-combinations 100000
+```
+
+Optional: only write the comparison table and skip best-spec JSON.
+```bash
+python -m hedonic.select_model --skip-selected-spec
+```
+
+### 2) Estimate the final model
+Estimate the production model using the selected spec file.
+```bash
+python -m hedonic.train.estimate_hedonic --feature-spec-json hedonic/artifacts/residential_hedonic_selected_spec.json
 ```
 
 Outputs (in `hedonic/artifacts`):
 - `residential_hedonic_model.joblib`
 - `residential_hedonic_metrics.json`
-- `residential_hedonic_cv_metrics.json` (written when `--cv-folds >= 2`)
 - `residential_hedonic_coefficients.csv`
+
+### 3) Run cross-validation
+Run K-fold CV in one dedicated script. This writes CV metrics only and does not train/export the production model artifact.
+```bash
+python -m hedonic.run_cross_validation --feature-spec-json hedonic/artifacts/residential_hedonic_selected_spec.json --cv-folds 5
+```
+
+Output:
+- `hedonic/artifacts/residential_hedonic_cv_metrics.json`
 
 ### 4) Run hedonic-specific regression tests
 ```bash

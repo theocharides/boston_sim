@@ -7,10 +7,10 @@ This folder contains two test modules.
 File: `tests/test_preprocessed_parcels.py`
 
 Purpose:
-Validate that the fully preprocessed parcel table in `outputs/parcels_preprocessed.csv` has the expected schema, identifiers, land-use values, value columns, locational enrichment columns, and geometry formatting.
+Validate that the fully preprocessed parcel table in `inputs/parcels_preprocessed.csv` has the expected schema, identifiers, land-use values, value columns, locational enrichment columns, and geometry formatting.
 
 Data source used by the tests:
-- `outputs/parcels_preprocessed.csv`
+- `inputs/parcels_preprocessed.csv`
 
 Test groups and checks:
 

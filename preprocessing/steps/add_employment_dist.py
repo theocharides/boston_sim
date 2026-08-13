@@ -42,13 +42,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Path to parcels CSV with geometry in WKT.",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Output CSV path.",
     )
 

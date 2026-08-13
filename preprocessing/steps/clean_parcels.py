@@ -14,7 +14,7 @@ Inputs:
 - `boston_parcel_shapes.geojson`
 
 Outputs:
-- `parcels_preprocessed.csv`
+- `inputs/parcels_preprocessed.csv`
 """
 
 from __future__ import annotations
@@ -137,7 +137,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Output CSV path.",
     )
 

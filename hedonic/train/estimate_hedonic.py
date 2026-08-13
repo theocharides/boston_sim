@@ -10,22 +10,22 @@ from typing import Any
 import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 from hedonic.common.modeling_common import (
     LOC_NEIGHBORHOOD_FEATURES,
     STRUCTURAL_FEATURES,
     TARGET_COL,
     available_features,
     build_ridge_pipeline,
-    cross_validate_log_and_level,
     evaluate_log_and_level,
     extract_coefficients,
     get_ridge_alpha,
     infer_feature_types,
     prepare_model_df,
-    require_existing_path,
     split_features_target,
     subset_residential_rows,
 )
+from shared_utils import require_existing_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_processed_for_hedonic.csv",
         help="Path to parcel-level input CSV.",
     )
     parser.add_argument(
@@ -59,12 +59,6 @@ def parse_args() -> argparse.Namespace:
         help="Random seed for train/test split.",
     )
     parser.add_argument(
-        "--cv-folds",
-        type=int,
-        default=0,
-        help="Optional K-fold cross-validation count (set >=2 to enable).",
-    )
-    parser.add_argument(
         "--feature-list",
         type=str,
         default=None,
@@ -80,6 +74,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Optional JSON file containing selected features under a 'features' key "
             "or as a top-level string array."
+        ),
+    )
+    parser.add_argument(
+        "--require-walkability",
+        action="store_true",
+        help=(
+            "Require neighborhood_walkability to remain in the selected feature set, "
+            "even when a custom feature list or spec is passed."
         ),
     )
 
@@ -118,15 +120,24 @@ def resolve_feature_set(df: pd.DataFrame, args: argparse.Namespace) -> tuple[lis
         selected = _parse_feature_spec_json(args.feature_spec_json)
         source = f"--feature-spec-json ({args.feature_spec_json})"
     else:
-        candidate_features = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
-        selected = candidate_features
+        selected = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
         source = "default feature pools (STRUCTURAL_FEATURES + LOC_NEIGHBORHOOD_FEATURES)"
+
+    if args.require_walkability:
+        if "neighborhood_walkability" not in selected:
+            selected = [*selected, "neighborhood_walkability"]
+        source = f"{source}; walkability required"
 
     existing_features = available_features(df, selected)
     if not existing_features:
         raise ValueError(
             "No selected features were found in the input CSV. "
             f"Requested: {selected}"
+        )
+
+    if args.require_walkability and "neighborhood_walkability" not in df.columns:
+        raise ValueError(
+            "--require-walkability was set, but neighborhood_walkability is not present in the input data."
         )
 
     missing = [feature for feature in selected if feature not in existing_features]
@@ -204,39 +215,62 @@ def main() -> None:
         "alpha": get_ridge_alpha(model),
     }
 
-    if args.cv_folds >= 2:
-        print(f"Running {args.cv_folds}-fold cross-validation...")
-        cv_results = cross_validate_log_and_level(
-            model=build_ridge_pipeline(
-                numeric_features=numeric_features,
-                categorical_features=categorical_features,
-            ),
-            X=X,
-            y=y,
-            cv_folds=args.cv_folds,
-            random_seed=args.random_seed,
-        )
-        metrics["cv"] = cv_results
-
     coef_df = extract_coefficients(model)
+
+    numeric_effects_df = (
+        coef_df[coef_df["feature_type"] == "numeric"][
+            [
+                "feature_readable",
+                "feature",
+                "pct_effect_1_unit",
+                "pct_effect_100_units",
+                "pct_effect_1000_units",
+            ]
+        ]
+        .sort_values("feature_readable")
+        .reset_index(drop=True)
+    )
+
+    categorical_effects_df = (
+        coef_df[coef_df["feature_type"] == "categorical"][
+            [
+                "feature_readable",
+                "feature_level",
+                "coefficient",
+                "pct_effect_1_unit",
+                "effect_1_unit_label",
+            ]
+        ]
+        .rename(
+            columns={
+                "feature_readable": "categorical_feature",
+                "feature_level": "output_value",
+                "pct_effect_1_unit": "pct_relative_to_baseline",
+                "effect_1_unit_label": "pct_relative_to_baseline_label",
+            }
+        )
+        .sort_values(["categorical_feature", "output_value"])
+        .reset_index(drop=True)
+    )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     model_path = args.output_dir / "residential_hedonic_model.joblib"
     metrics_path = args.output_dir / "residential_hedonic_metrics.json"
-    cv_metrics_path = args.output_dir / "residential_hedonic_cv_metrics.json"
     coefficients_path = args.output_dir / "residential_hedonic_coefficients.csv"
+    numeric_effects_path = args.output_dir / "residential_hedonic_coefficients_numeric_effects.csv"
+    categorical_effects_path = args.output_dir / "residential_hedonic_coefficients_categorical_effects.csv"
 
     joblib.dump(model, model_path)
     metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    if "cv" in metrics:
-        cv_metrics_path.write_text(json.dumps(metrics["cv"], indent=2), encoding="utf-8")
     coef_df.to_csv(coefficients_path, index=False)
+    numeric_effects_df.to_csv(numeric_effects_path, index=False)
+    categorical_effects_df.to_csv(categorical_effects_path, index=False)
 
     print(f"Model written: {model_path}")
     print(f"Metrics written: {metrics_path}")
-    if "cv" in metrics:
-        print(f"CV metrics written: {cv_metrics_path}")
     print(f"Coefficients written: {coefficients_path}")
+    print(f"Numeric effects written: {numeric_effects_path}")
+    print(f"Categorical effects written: {categorical_effects_path}")
     print(f"Holdout R2 (log): {metrics['r2_log']:.4f}")
     print(f"Holdout RMSE (level): {metrics['rmse_level']:.2f}")
 

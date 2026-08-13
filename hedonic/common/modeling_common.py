@@ -15,8 +15,6 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-from shared_utils import require_existing_path
-
 TARGET_COL = "TOTAL_VALUE"
 
 RESIDENTIAL_FILTER_COLUMNS = [
@@ -36,15 +34,25 @@ RESIDENTIAL_LU_CODES = {
 }
 
 STRUCTURAL_FEATURES = [
+    "LU", 
     "LIVING_AREA",
-    "LAND_SF",
-    "INT_COND"
+    "LAND_SF", 
+    "INT_COND",
+    "OVERALL_COND", 
+    "RES_FLOOR", 
+    "YR_BUILT", 
+    "BLDG_TYPE"
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
     "neighborhood_walkability",
     "emp_dist_m",
+    "median_hh_income",
+    "neighborhood_name"
 ]
+
+DEFAULT_FEATURE_SET = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
+
 def available_features(df: pd.DataFrame, feature_pool: list[str]) -> list[str]:
     """Return features from feature_pool that exist in the dataframe."""
     return [feature for feature in feature_pool if feature in df.columns]
@@ -121,8 +129,10 @@ def prepare_model_df(
     numeric_features: list[str],
     categorical_features: list[str],
     target_col: str = TARGET_COL,
+    apply_quality_filters: bool = False,
 ) -> pd.DataFrame:
     """Prepare numeric/categorical features and filter to valid target rows."""
+
     model_cols = [*numeric_features, *categorical_features, target_col]
     model_df = df[model_cols].copy()
 
@@ -137,6 +147,11 @@ def prepare_model_df(
 
     model_df = model_df[model_df[target_col].notna() & (model_df[target_col] > 0)]
     return model_df
+
+
+def apply_hedonic_value_quality_filters(df: pd.DataFrame) -> pd.DataFrame:
+    """Compatibility shim: quality filtering is disabled and data passes through unchanged."""
+    return df.copy()
 
 
 def split_features_target(
@@ -185,7 +200,7 @@ def build_ridge_pipeline(
     return Pipeline(
         steps=[
             ("preprocess", preprocess),
-            ("ridge", Ridge(alpha=1.0, solver="sag", random_state=42, max_iter=10000)),
+            ("ridge", Ridge(alpha=1.0, solver="auto", max_iter=10000)),
         ]
     )
 
@@ -207,13 +222,14 @@ def evaluate_log_and_level(
     pred_log_for_level = np.clip(pred_log, y_train.min(), y_train.max())
     pred_level = np.expm1(pred_log_for_level)
     y_test_level = np.expm1(y_test)
+    mae_level = mean_absolute_error(y_test_level, pred_level)
 
     return {
         "r2_log": float(r2_score(y_test, pred_log)),
         "rmse_log": float(np.sqrt(mean_squared_error(y_test, pred_log))),
         "r2_level": float(r2_score(y_test_level, pred_level)),
         "rmse_level": float(np.sqrt(mean_squared_error(y_test_level, pred_level))),
-        "mae_level": float(mean_absolute_error(y_test_level, pred_level)),
+        "mae_level": float(mae_level),
     }
 
 
@@ -278,13 +294,97 @@ def train_test_split_indices(
 
 def extract_coefficients(model: Pipeline) -> pd.DataFrame:
     """Return sorted feature coefficients from fitted ridge pipeline."""
+
+    def _parse_feature(feature: str) -> tuple[str, str, str]:
+        if feature.startswith("num__"):
+            name = feature.replace("num__", "", 1)
+            readable = name.replace("_", " ").title()
+            return "numeric", readable, ""
+
+        if feature.startswith("cat__"):
+            raw = feature.replace("cat__", "", 1)
+            prefixes = [
+                "neighborhood_name_",
+                "OVERALL_COND_",
+                "INT_COND_",
+                "BLDG_TYPE_",
+                "LU_",
+            ]
+            for prefix in prefixes:
+                if raw.startswith(prefix):
+                    base = prefix.rstrip("_")
+                    level = raw[len(prefix) :]
+                    readable = base.replace("_", " ").title()
+                    return "categorical", readable, level
+
+            if "_" in raw:
+                base, level = raw.split("_", 1)
+                readable = base.replace("_", " ").title()
+                return "categorical", readable, level
+
+            return "categorical", raw.replace("_", " ").title(), ""
+
+        return "other", feature.replace("_", " ").title(), ""
+
     feature_names = [
         str(name) for name in model.named_steps["preprocess"].get_feature_names_out()
     ]
     coefficients = model.named_steps["ridge"].coef_
 
-    return (
-        pd.DataFrame({"feature": feature_names, "coefficient": coefficients})
-        .sort_values("coefficient", ascending=False)
-        .reset_index(drop=True)
+    coef_df = pd.DataFrame({"feature": feature_names, "coefficient": coefficients})
+
+    coef_df["pct_effect_1_unit"] = (np.expm1(coef_df["coefficient"])) * 100.0
+    coef_df["pct_effect_100_units"] = np.where(
+        coef_df["feature"].str.startswith("num__"),
+        np.expm1(coef_df["coefficient"] * 100.0) * 100.0,
+        np.nan,
     )
+    coef_df["pct_effect_1000_units"] = np.where(
+        coef_df["feature"].str.startswith("num__"),
+        np.expm1(coef_df["coefficient"] * 1000.0) * 100.0,
+        np.nan,
+    )
+
+    parsed = coef_df["feature"].map(_parse_feature)
+    coef_df[["feature_type", "feature_readable", "feature_level"]] = pd.DataFrame(
+        parsed.tolist(),
+        index=coef_df.index,
+    )
+
+    coef_df["_feature_type_rank"] = coef_df["feature_type"].map(
+        {"numeric": 0, "categorical": 1, "other": 2}
+    ).fillna(3)
+    coef_df = coef_df.sort_values(
+        by=["_feature_type_rank", "feature_readable", "feature_level", "coefficient"],
+        ascending=[True, True, True, False],
+    ).drop(columns=["_feature_type_rank"])
+
+    coef_df["effect_1_unit_label"] = np.where(
+        coef_df["feature_type"] == "numeric",
+        coef_df["pct_effect_1_unit"].map(lambda value: f"{value:.6f}%"),
+        "N/A (categorical)",
+    )
+    coef_df["effect_100_units_label"] = coef_df["pct_effect_100_units"].map(
+        lambda value: f"{value:.3f}%" if pd.notna(value) else "N/A (categorical)"
+    )
+    coef_df["effect_1000_units_label"] = coef_df["pct_effect_1000_units"].map(
+        lambda value: f"{value:.3f}%" if pd.notna(value) else "N/A (categorical)"
+    )
+
+    coef_df = coef_df[
+        [
+            "feature",
+            "feature_readable",
+            "feature_level",
+            "feature_type",
+            "coefficient",
+            "pct_effect_1_unit",
+            "effect_1_unit_label",
+            "pct_effect_100_units",
+            "effect_100_units_label",
+            "pct_effect_1000_units",
+            "effect_1000_units_label",
+        ]
+    ]
+
+    return coef_df

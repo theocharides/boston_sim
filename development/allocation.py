@@ -55,13 +55,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed_with_baseline_vars.csv",
         help="Path to parcel CSV.",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "development_opportunity_scored.csv",
+        default=repo_root / "outputs" / "development_opportunity_scored.csv",
         help="Path to output scored CSV.",
     )
     parser.add_argument(

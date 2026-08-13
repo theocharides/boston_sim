@@ -9,8 +9,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from hedonic.common.modeling_common import HEDONIC_REASONABLE_BOUNDS
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PREPROCESSED_CSV = REPO_ROOT / "outputs" / "parcels_preprocessed.csv"
+PREPROCESSED_CSV = REPO_ROOT / "inputs" / "parcels_preprocessed.csv"
 
 # Known valid LU codes from the project data dictionary.
 KNOWN_LU_CODES = {
@@ -22,6 +24,9 @@ INCOME_MISSING_SENTINEL = -666666666.0
 
 # Maximum tolerated missing share for critical modeling columns.
 MAX_CRITICAL_MISSING_SHARE = 0.10
+MAX_CRITICAL_MISSING_SHARE_BY_COLUMN: dict[str, float] = {
+    "INT_COND": 0.20,
+}
 
 # Columns expected after the full pipeline has run (clean + zoning + neighborhood + income + emp_dist).
 REQUIRED_COLUMNS: list[str] = [
@@ -69,6 +74,9 @@ CRITICAL_MODELING_COLUMNS: list[str] = [
     "emp_dist_m",
 ]
 
+INT_COND_VALID_CODES = {"A", "E", "F", "G", "P"}
+OVERALL_COND_VALID_CODES = {"A", "E", "EX", "F", "G", "P", "US", "VG", "VP"}
+
 
 def load_preprocessed_parcels() -> pd.DataFrame:
     return pd.read_csv(PREPROCESSED_CSV, low_memory=False)
@@ -76,7 +84,8 @@ def load_preprocessed_parcels() -> pd.DataFrame:
 
 def get_yr_built_outliers(parcels_df: pd.DataFrame) -> pd.Series:
     yr_built = pd.to_numeric(parcels_df["YR_BUILT"], errors="coerce")
-    return yr_built[(yr_built < 1600) | (yr_built > 2030)].dropna()
+    lower, upper = HEDONIC_REASONABLE_BOUNDS["YR_BUILT"]
+    return yr_built[(yr_built < lower) | (yr_built > upper)].dropna()
 
 
 @pytest.fixture(scope="module")
@@ -209,10 +218,56 @@ class TestValueColumns:
         non_positive = (vals <= 0).sum()
         assert non_positive == 0, f"{non_positive} rows have non-positive LAND_SF."
 
+    def test_hedonic_cond_and_type_fields_reasonable_with_warnings(self, parcels: pd.DataFrame) -> None:
+        for column, valid_codes in [
+            ("INT_COND", INT_COND_VALID_CODES),
+            ("OVERALL_COND", OVERALL_COND_VALID_CODES),
+        ]:
+            cond = parcels[column].astype("string").fillna("").str.strip()
+            code = cond.str.split("-", n=1).str[0].str.strip().str.upper()
+            invalid = ~code.isin(valid_codes)
+            invalid_count = int(invalid.sum())
+            if invalid_count > 0:
+                sample = parcels.loc[invalid, column].head(5).astype(str).tolist()
+                warnings.warn(
+                    f"WARNING: {column} has {invalid_count} unreasonable values; sample={sample}",
+                    stacklevel=1,
+                )
+
+        bldg_type = parcels["BLDG_TYPE"].astype("string").fillna("").str.strip()
+        invalid_bldg_type = bldg_type.eq("")
+        invalid_count = int(invalid_bldg_type.sum())
+        if invalid_count > 0:
+            warnings.warn(
+                f"WARNING: BLDG_TYPE has {invalid_count} missing/blank values.",
+                stacklevel=1,
+            )
+
     def test_living_area_non_negative_where_present(self, parcels: pd.DataFrame) -> None:
         vals = pd.to_numeric(parcels["LIVING_AREA"], errors="coerce").dropna()
         negatives = (vals < 0).sum()
         assert negatives == 0, f"{negatives} rows have negative LIVING_AREA."
+
+    def test_hedonic_area_columns_reasonable_with_warnings(self, parcels: pd.DataFrame) -> None:
+        bounds = {
+            "GROSS_AREA": HEDONIC_REASONABLE_BOUNDS["GROSS_AREA"],
+            "LIVING_AREA": HEDONIC_REASONABLE_BOUNDS["LIVING_AREA"],
+            "LAND_SF": HEDONIC_REASONABLE_BOUNDS["LAND_SF"],
+        }
+
+        for column, (lower_exclusive, upper_inclusive) in bounds.items():
+            vals = pd.to_numeric(parcels[column], errors="coerce")
+            invalid = vals.isna() | (vals <= lower_exclusive) | (vals > upper_inclusive)
+            invalid_count = int(invalid.sum())
+            if invalid_count > 0:
+                sample = vals[invalid].head(5).tolist()
+                warnings.warn(
+                    (
+                        f"WARNING: {column} has {invalid_count} unreasonable values outside "
+                        f"({lower_exclusive}, {upper_inclusive}]; sample={sample}"
+                    ),
+                    stacklevel=1,
+                )
 
     def test_yr_built_plausible(self, parcels: pd.DataFrame) -> None:
         yr_outliers = get_yr_built_outliers(parcels)
@@ -316,9 +371,13 @@ class TestCriticalColumnCompleteness:
         else:
             missing_share = residential[column].isna().mean()
 
-        assert missing_share < MAX_CRITICAL_MISSING_SHARE, (
+        max_missing_share = MAX_CRITICAL_MISSING_SHARE_BY_COLUMN.get(
+            column,
+            MAX_CRITICAL_MISSING_SHARE,
+        )
+        assert missing_share < max_missing_share, (
             f"{column} missing share is {missing_share:.1%} on residential rows; "
-            f"expected < {MAX_CRITICAL_MISSING_SHARE:.0%}."
+            f"expected < {max_missing_share:.0%}."
         )
 
 

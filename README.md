@@ -14,7 +14,9 @@ It runs these steps in order:
 4. `add_income.py` joins tract-level median household income using the Census API.
 5. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
 
-The preprocessing output is stored as `outputs/parcels_preprocessed.csv`.
+The preprocessing output is stored as `inputs/parcels_preprocessed.csv`.
+
+The walkability-enriched baseline table is stored as `inputs/parcels_preprocessed_with_baseline_vars.csv`.
 
 ## Configuration
 

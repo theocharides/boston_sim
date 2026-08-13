@@ -6,11 +6,11 @@ performs a spatial join with zoning subdistrict boundaries to add zoning
 attributes to each parcel.
 
 Inputs:
-- `parcels_preprocessed.csv` (output from clean_parcels.py)
+- `inputs/parcels_preprocessed.csv` (output from clean_parcels.py)
 - `boston_zoning_subdistricts/Boston_Zoning_Subdistricts.shp`
 
 Outputs:
-- `parcels_preprocessed.csv`
+- `inputs/parcels_preprocessed.csv`
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-cleaned",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Path to cleaned parcels CSV (output from clean_parcels.py).",
     )
     parser.add_argument(
@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Output CSV path.",
     )
 

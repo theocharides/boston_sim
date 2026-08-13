@@ -67,4 +67,4 @@ Common raw inputs:
 - `preprocessing/raw_data/boston_neighborhood_boundaries.geojson`
 
 Primary working output table:
-- `parcels_preprocessed.csv` (written at the repository root)
+- `inputs/parcels_preprocessed.csv`

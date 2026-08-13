@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 from shapely import wkt
 
+from hedonic.common.modeling_common import HEDONIC_REASONABLE_BOUNDS
+
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -73,7 +75,8 @@ def clean_year_series(series: pd.Series) -> pd.Series:
     years = pd.to_numeric(raw_text, errors="coerce")
     malformed_mask = (years >= 10000) & (years <= 99999)
     if malformed_mask.any():
+        lower, upper = HEDONIC_REASONABLE_BOUNDS["YR_BUILT"]
         shortened = (years[malformed_mask] // 10).astype("Int64")
-        plausible_shortened = shortened.between(1600, 2030)
+        plausible_shortened = shortened.between(lower, upper)
         years.loc[malformed_mask[malformed_mask].index[plausible_shortened]] = shortened[plausible_shortened].astype(float)
     return years

@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "outputs" / "parcels_preprocessed.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Canonical preprocessed parcel table updated in-place by each pipeline step.",
     )
     parser.add_argument(
