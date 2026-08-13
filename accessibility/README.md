@@ -12,6 +12,12 @@ This folder contains walkability and accessibility logic used by the simulation.
 `neighborhood_walkability.py` computes parcel walkability from an OSM
 walking network and a set of daily destination categories.
 
+For each destination category, the script converts network distance to a
+0-100 score using a power-decay curve controlled by
+`--distance-decay-exponent`. The default exponent is `1.0`, which makes the
+distance decay linear: scores start at 100 at 0 m and decline to 0 at the
+`--max-walk-distance-m` threshold, which defaults to 1,600 m.
+
 When the simulation passes `allocated_units` into the script, it creates
 synthetic amenities near parcels that received new housing. The added amenities are combined with the OSM amenities, and the final walkability score is recomputed from the expanded destination set.
 

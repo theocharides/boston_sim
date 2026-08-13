@@ -52,7 +52,7 @@
 | CC | Commercial condominium |
 | CD | Residential condominium unit |
 | CL | Commercial land |
-| CM | Condominium main (physical structure housing all related condo units with no assessed value) |
+| CM | Condominium main (all condo codes are aggregated to this one to maintain record per parcel) |
 | CP | Condo parking |
 | E | Tax-exempt |
 | EA | Tax-exempt (121A) |
