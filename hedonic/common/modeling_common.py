@@ -6,11 +6,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -184,7 +185,7 @@ def build_ridge_pipeline(
     return Pipeline(
         steps=[
             ("preprocess", preprocess),
-            ("ridge", Ridge(alpha=1.0, solver="svd", random_state=42)),
+            ("ridge", Ridge(alpha=1.0, solver="sag", random_state=42, max_iter=10000)),
         ]
     )
 
@@ -213,6 +214,52 @@ def evaluate_log_and_level(
         "r2_level": float(r2_score(y_test_level, pred_level)),
         "rmse_level": float(np.sqrt(mean_squared_error(y_test_level, pred_level))),
         "mae_level": float(mean_absolute_error(y_test_level, pred_level)),
+    }
+
+
+def cross_validate_log_and_level(
+    model: Pipeline,
+    X: pd.DataFrame,
+    y: pd.Series,
+    cv_folds: int,
+    random_seed: int,
+) -> dict[str, object]:
+    """Run K-fold CV and return fold metrics plus summary statistics."""
+    if cv_folds < 2:
+        raise ValueError("cv_folds must be >= 2 for cross-validation.")
+    if len(X) < cv_folds:
+        raise ValueError(
+            f"Cannot run {cv_folds}-fold CV with only {len(X)} rows."
+        )
+
+    splitter = KFold(n_splits=cv_folds, shuffle=True, random_state=random_seed)
+    fold_metrics: list[dict[str, float]] = []
+
+    for fold_index, (train_idx, test_idx) in enumerate(splitter.split(X), start=1):
+        fold_model = clone(model)
+        X_train = X.iloc[train_idx]
+        X_test = X.iloc[test_idx]
+        y_train = y.iloc[train_idx]
+        y_test = y.iloc[test_idx]
+
+        fold_model.fit(X_train, y_train)
+        pred_log = fold_model.predict(X_test)
+        metrics = evaluate_log_and_level(y_train=y_train, y_test=y_test, pred_log=pred_log)
+        metrics["fold"] = float(fold_index)
+        fold_metrics.append(metrics)
+
+    metric_names = ["r2_log", "rmse_log", "r2_level", "rmse_level", "mae_level"]
+    summary: dict[str, float] = {}
+    for metric in metric_names:
+        values = np.array([fold[metric] for fold in fold_metrics], dtype=float)
+        summary[f"{metric}_mean"] = float(values.mean())
+        summary[f"{metric}_std"] = float(values.std(ddof=0))
+
+    return {
+        "cv_folds": int(cv_folds),
+        "rows_total": int(len(X)),
+        "fold_metrics": fold_metrics,
+        "summary": summary,
     }
 
 

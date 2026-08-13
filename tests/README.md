@@ -113,6 +113,6 @@ python -m pytest tests/test_postprocess_simulation_outputs.py -v
 
 ## Current count
 
-- `test_preprocessed_parcels.py`: 25 tests
+- `test_preprocessed_parcels.py`: 33 tests
 - `test_postprocess_simulation_outputs.py`: 1 test
-- Total: 26 tests
+- Total: 34 tests

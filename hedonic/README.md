@@ -35,10 +35,21 @@ Train the production model using that selected spec file.
 python -m hedonic.train.estimate_hedonic
 ```
 
+Optional: enable K-fold cross-validation during training.
+```bash
+python -m hedonic.train.estimate_hedonic --cv-folds 5
+```
+
 Outputs (in `hedonic/artifacts`):
 - `residential_hedonic_model.joblib`
 - `residential_hedonic_metrics.json`
+- `residential_hedonic_cv_metrics.json` (written when `--cv-folds >= 2`)
 - `residential_hedonic_coefficients.csv`
+
+### 4) Run hedonic-specific regression tests
+```bash
+python -m pytest hedonic/tests/test_cross_validation.py -v
+```
 
 If you trained a new model and want the simulation to use it explicitly:
 ```bash

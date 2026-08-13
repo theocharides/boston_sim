@@ -20,6 +20,9 @@ KNOWN_LU_CODES = {
 # Sentinel used by add_income.py for missing ACS income.
 INCOME_MISSING_SENTINEL = -666666666.0
 
+# Maximum tolerated missing share for critical modeling columns.
+MAX_CRITICAL_MISSING_SHARE = 0.10
+
 # Columns expected after the full pipeline has run (clean + zoning + neighborhood + income + emp_dist).
 REQUIRED_COLUMNS: list[str] = [
     "PID",
@@ -52,6 +55,18 @@ OPTIONAL_COLUMNS: list[str] = [
     "rear_setback",
     "neighborhood_id",
     "GROSS_AREA",
+]
+
+# Columns used by the hedonic model that must remain mostly populated.
+CRITICAL_MODELING_COLUMNS: list[str] = [
+    "TOTAL_VALUE",
+    "LAND_SF",
+    "LIVING_AREA",
+    "INT_COND",
+    "zoning_use",
+    "neighborhood_name",
+    "median_hh_income",
+    "emp_dist_m",
 ]
 
 
@@ -262,6 +277,48 @@ class TestLocationalEnrichment:
         assert null_share < 0.5, (
             f"More than 50% of zoning_use is null ({null_share:.1%}). "
             "Was add_zoning.py run?"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Critical column completeness
+# ---------------------------------------------------------------------------
+
+class TestCriticalColumnCompleteness:
+    @staticmethod
+    def _residential_subset(parcels: pd.DataFrame) -> pd.DataFrame:
+        residential = {"A", "CD", "CM", "R1", "R2", "R3", "R4", "RC", "RL"}
+        lu_clean = (
+            parcels["LU"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.split(r"\s*-\s*", expand=False)
+            .str[0]
+            .str.strip()
+            .str.upper()
+        )
+        return parcels.loc[lu_clean.isin(residential)].copy()
+
+    @pytest.mark.parametrize("column", CRITICAL_MODELING_COLUMNS)
+    def test_critical_columns_under_10pct_missing_on_residential_rows(
+        self,
+        parcels: pd.DataFrame,
+        column: str,
+    ) -> None:
+        residential = self._residential_subset(parcels)
+        if residential.empty:
+            pytest.skip("No residential rows available for completeness checks.")
+
+        if column == "median_hh_income":
+            vals = pd.to_numeric(residential[column], errors="coerce")
+            missing_share = (vals.isna() | (vals == INCOME_MISSING_SENTINEL)).mean()
+        else:
+            missing_share = residential[column].isna().mean()
+
+        assert missing_share < MAX_CRITICAL_MISSING_SHARE, (
+            f"{column} missing share is {missing_share:.1%} on residential rows; "
+            f"expected < {MAX_CRITICAL_MISSING_SHARE:.0%}."
         )
 
 

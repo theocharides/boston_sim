@@ -16,6 +16,7 @@ from hedonic.common.modeling_common import (
     TARGET_COL,
     available_features,
     build_ridge_pipeline,
+    cross_validate_log_and_level,
     evaluate_log_and_level,
     extract_coefficients,
     get_ridge_alpha,
@@ -56,6 +57,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=42,
         help="Random seed for train/test split.",
+    )
+    parser.add_argument(
+        "--cv-folds",
+        type=int,
+        default=0,
+        help="Optional K-fold cross-validation count (set >=2 to enable).",
     )
     parser.add_argument(
         "--feature-list",
@@ -197,19 +204,38 @@ def main() -> None:
         "alpha": get_ridge_alpha(model),
     }
 
+    if args.cv_folds >= 2:
+        print(f"Running {args.cv_folds}-fold cross-validation...")
+        cv_results = cross_validate_log_and_level(
+            model=build_ridge_pipeline(
+                numeric_features=numeric_features,
+                categorical_features=categorical_features,
+            ),
+            X=X,
+            y=y,
+            cv_folds=args.cv_folds,
+            random_seed=args.random_seed,
+        )
+        metrics["cv"] = cv_results
+
     coef_df = extract_coefficients(model)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     model_path = args.output_dir / "residential_hedonic_model.joblib"
     metrics_path = args.output_dir / "residential_hedonic_metrics.json"
+    cv_metrics_path = args.output_dir / "residential_hedonic_cv_metrics.json"
     coefficients_path = args.output_dir / "residential_hedonic_coefficients.csv"
 
     joblib.dump(model, model_path)
     metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    if "cv" in metrics:
+        cv_metrics_path.write_text(json.dumps(metrics["cv"], indent=2), encoding="utf-8")
     coef_df.to_csv(coefficients_path, index=False)
 
     print(f"Model written: {model_path}")
     print(f"Metrics written: {metrics_path}")
+    if "cv" in metrics:
+        print(f"CV metrics written: {cv_metrics_path}")
     print(f"Coefficients written: {coefficients_path}")
     print(f"Holdout R2 (log): {metrics['r2_log']:.4f}")
     print(f"Holdout RMSE (level): {metrics['rmse_level']:.2f}")
