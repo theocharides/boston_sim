@@ -34,21 +34,14 @@ RESIDENTIAL_LU_CODES = {
 }
 
 STRUCTURAL_FEATURES = [
-    "LU", 
-    "LIVING_AREA",
     "LAND_SF", 
     "INT_COND",
-    "OVERALL_COND", 
-    "RES_FLOOR", 
-    "YR_BUILT", 
-    "BLDG_TYPE"
+    "LU"
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
     "neighborhood_walkability",
-    "emp_dist_m",
-    "median_hh_income",
-    "neighborhood_name"
+    "emp_dist_m"
 ]
 
 DEFAULT_FEATURE_SET = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
@@ -359,10 +352,8 @@ def extract_coefficients(model: Pipeline) -> pd.DataFrame:
         ascending=[True, True, True, False],
     ).drop(columns=["_feature_type_rank"])
 
-    coef_df["effect_1_unit_label"] = np.where(
-        coef_df["feature_type"] == "numeric",
-        coef_df["pct_effect_1_unit"].map(lambda value: f"{value:.6f}%"),
-        "N/A (categorical)",
+    coef_df["effect_1_unit_label"] = coef_df["pct_effect_1_unit"].map(
+        lambda value: f"{value:.6f}%"
     )
     coef_df["effect_100_units_label"] = coef_df["pct_effect_100_units"].map(
         lambda value: f"{value:.3f}%" if pd.notna(value) else "N/A (categorical)"

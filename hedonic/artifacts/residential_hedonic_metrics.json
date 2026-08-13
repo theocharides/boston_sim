@@ -5,39 +5,25 @@
   "target": "TOTAL_VALUE",
   "feature_source": "default feature pools (STRUCTURAL_FEATURES + LOC_NEIGHBORHOOD_FEATURES)",
   "selected_features": [
-    "LIVING_AREA",
     "LAND_SF",
-    "RES_FLOOR",
-    "YR_BUILT",
     "neighborhood_walkability",
     "emp_dist_m",
-    "median_hh_income",
-    "LU",
     "INT_COND",
-    "OVERALL_COND",
-    "BLDG_TYPE",
-    "neighborhood_name"
+    "LU"
   ],
   "numeric_features": [
-    "LIVING_AREA",
     "LAND_SF",
-    "RES_FLOOR",
-    "YR_BUILT",
     "neighborhood_walkability",
-    "emp_dist_m",
-    "median_hh_income"
+    "emp_dist_m"
   ],
   "categorical_features": [
-    "LU",
     "INT_COND",
-    "OVERALL_COND",
-    "BLDG_TYPE",
-    "neighborhood_name"
+    "LU"
   ],
-  "r2_log": 0.7773274131648233,
-  "rmse_log": 0.2861939503932469,
-  "r2_level": 0.7958672238674273,
-  "rmse_level": 573570.4186941767,
-  "mae_level": 282829.72631057986,
+  "r2_log": 0.6752512003766786,
+  "rmse_log": 0.34562157850245634,
+  "r2_level": 0.5690642463388254,
+  "rmse_level": 833367.6502684252,
+  "mae_level": 370027.795873555,
   "alpha": 1.0
 }
