@@ -1,0 +1,59 @@
+{
+  "input_csv": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\inputs\\parcels_processed_for_hedonic.csv",
+  "model_path": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_model.joblib",
+  "residual_scale": "log",
+  "feature_source": "fitted_model",
+  "selected_features": [
+    "LAND_SF",
+    "neighborhood_walkability",
+    "emp_dist_m",
+    "INT_COND",
+    "LU"
+  ],
+  "numeric_features": [
+    "LAND_SF",
+    "neighborhood_walkability",
+    "emp_dist_m"
+  ],
+  "categorical_features": [
+    "INT_COND",
+    "LU"
+  ],
+  "rows_residential": 68985,
+  "rows_model": 68985,
+  "rows_with_valid_geometry": 68985,
+  "sample_size": 0,
+  "residual_diagnostics": {
+    "residual_mean": 0.0009545540784035944,
+    "residual_std": 0.3455362739194379,
+    "residual_min": -1.8250681173189935,
+    "residual_max": 2.562482425533222,
+    "residual_median": 0.0061723117769165725,
+    "residual_skewness": 0.3423647092967997,
+    "residual_excess_kurtosis": 2.983050198060644,
+    "fitted_residual_correlation": 0.005412205299692729,
+    "residual_normaltest_statistic": 6108.524436318985,
+    "residual_normaltest_pvalue": 0.0,
+    "scaled_location_mean": 0.7626777927832611
+  },
+  "morans_i": {
+    "n": 68985,
+    "k_neighbors": 8,
+    "morans_i": 0.5647434423276272,
+    "z_score": 302.64039781215945,
+    "permutations_requested": 199,
+    "permutations_used": 199,
+    "inference": "permutation",
+    "permutation_mean": 1.5884506122350033e-05,
+    "permutation_std": 0.001866001901610028,
+    "p_value_two_sided": 0.005
+  },
+  "plots_dir": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots",
+  "plot_paths": {
+    "observed_vs_predicted": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\observed_vs_predicted.png",
+    "residuals_vs_fitted": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\residuals_vs_fitted.png",
+    "residual_distribution": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\residual_distribution.png",
+    "qq_plot_standardized_residuals": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\qq_plot_standardized_residuals.png",
+    "scale_location": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\scale_location.png"
+  }
+}

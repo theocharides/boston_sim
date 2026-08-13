@@ -9,8 +9,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hedonic.common.modeling_common import HEDONIC_REASONABLE_BOUNDS
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREPROCESSED_CSV = REPO_ROOT / "inputs" / "parcels_preprocessed.csv"
 
@@ -84,7 +82,7 @@ def load_preprocessed_parcels() -> pd.DataFrame:
 
 def get_yr_built_outliers(parcels_df: pd.DataFrame) -> pd.Series:
     yr_built = pd.to_numeric(parcels_df["YR_BUILT"], errors="coerce")
-    lower, upper = HEDONIC_REASONABLE_BOUNDS["YR_BUILT"]
+    lower, upper = 1600.0, 2030.0
     return yr_built[(yr_built < lower) | (yr_built > upper)].dropna()
 
 
@@ -250,9 +248,9 @@ class TestValueColumns:
 
     def test_hedonic_area_columns_reasonable_with_warnings(self, parcels: pd.DataFrame) -> None:
         bounds = {
-            "GROSS_AREA": HEDONIC_REASONABLE_BOUNDS["GROSS_AREA"],
-            "LIVING_AREA": HEDONIC_REASONABLE_BOUNDS["LIVING_AREA"],
-            "LAND_SF": HEDONIC_REASONABLE_BOUNDS["LAND_SF"],
+            "GROSS_AREA": (0.0, 20000.0),
+            "LIVING_AREA": (0.0, 15000.0),
+            "LAND_SF": (0.0, 200000.0),
         }
 
         for column, (lower_exclusive, upper_inclusive) in bounds.items():

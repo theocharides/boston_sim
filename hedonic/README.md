@@ -16,6 +16,7 @@ Each step below has one script location:
 - Feature selection: `hedonic/select_model.py`
 - Final model estimation: `hedonic/train/estimate_hedonic.py`
 - Cross-validation reporting: `hedonic/run_cross_validation.py`
+- Validation diagnostics: `hedonic/validate_model.py`
 
 ### 1) Select features
 Compare many candidate feature specifications, save performance results, and write the selected feature spec JSON.
@@ -71,6 +72,32 @@ Output:
 ```bash
 python -m pytest hedonic/tests/test_cross_validation.py -v
 ```
+
+### 5) Run validation diagnostics (starting with Moran's I)
+Compute Moran's I on log-residuals from the fitted production model to check for
+spatial autocorrelation in errors, using KNN row-standardized weights from
+`libpysal`.
+
+The validation script also writes standard regression diagnostics and plots,
+including observed-vs-predicted, residuals-vs-fitted, residual histogram, Q-Q,
+scale-location charts, plus summary metrics for RMSE, MAE, R2, residual
+distribution shape, fitted/residual correlation, normality, and Moran's I.
+
+```bash
+python -m hedonic.validate_model --input-csv inputs/parcels_processed_for_hedonic.csv --model-path hedonic/artifacts/residential_hedonic_model.joblib --k-neighbors 8 --permutations 199
+```
+
+This validation script is meant to assess the final fitted model on the same parcel
+input used to train it. It does not compute holdout metrics; it focuses on residual
+diagnostics and Moran's I.
+
+Output:
+- `hedonic/artifacts/residential_hedonic_validation.json`
+- `hedonic/artifacts/residential_hedonic_validation_plots/`
+
+The Moran output uses permutation-based inference when permutations are
+requested, and the validator still defaults to a small permutation sample when
+`--permutations 0` is passed for smoke tests.
 
 If you trained a new model and want the simulation to use it explicitly:
 ```bash
