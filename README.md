@@ -15,8 +15,7 @@ It runs these steps in order:
 5. `add_employment_dist.py` adds straight-line distance to major employment centers in Boston.
 
 The preprocessing output is stored as `inputs/parcels_preprocessed.csv`.
-
-The walkability-enriched baseline table is stored as `inputs/parcels_preprocessed_with_baseline_vars.csv`.
+This is the single canonical parcel table used for downstream modeling and simulation.
 
 ## Configuration
 

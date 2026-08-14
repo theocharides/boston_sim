@@ -26,7 +26,7 @@ synthetic amenities near parcels that received new housing. The added amenities 
 Run directly:
 
 ```bash
-python accessibility/neighborhood_walkability.py --parcels-csv inputs/parcels_preprocessed.csv --output-csv inputs/parcels_preprocessed_with_baseline_vars.csv
+python accessibility/neighborhood_walkability.py --parcels-csv inputs/parcels_preprocessed.csv --output-csv inputs/parcels_preprocessed.csv
 ```
 
 Simulation integration:

@@ -26,7 +26,7 @@ exhausted.
 Run directly:
 
 ```bash
-python development/allocation.py --input-csv inputs/parcels_preprocessed_with_baseline_vars.csv --output-csv outputs/development_opportunity_scored.csv --config-yaml development_sim.yaml
+python development/allocation.py --input-csv inputs/parcels_preprocessed.csv --output-csv outputs/development_opportunity_scored.csv --config-yaml development_sim.yaml
 ```
 
 Simulation integration:

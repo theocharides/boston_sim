@@ -73,10 +73,14 @@ Compute Moran's I on log-residuals from the fitted production model to check for
 spatial autocorrelation in errors, using KNN row-standardized weights from
 `libpysal`.
 
-The validation script also writes standard regression diagnostics and plots,
+The validation script also includes a VIF (variance inflation factor) check on the
+transformed model design matrix, so you can flag likely multicollinearity among
+features as part of the same post-estimation pass.
+
+The validation script writes standard regression diagnostics and plots,
 including observed-vs-predicted, residuals-vs-fitted, residual histogram, Q-Q,
 scale-location charts, plus summary metrics for RMSE, MAE, R2, residual
-distribution shape, fitted/residual correlation, normality, and Moran's I.
+distribution shape, fitted/residual correlation, normality, Moran's I, and VIF.
 
 ```bash
 python -m hedonic.validation.validate_model --input-csv inputs/parcels_processed_for_hedonic.csv --model-path hedonic/artifacts/residential_hedonic_model.joblib --k-neighbors 8 --permutations 199
@@ -90,7 +94,9 @@ Output:
 - `hedonic/artifacts/residential_hedonic_validation.json`
 - `hedonic/artifacts/residential_hedonic_validation_plots/`
 
-The Moran output uses permutation-based inference when permutations are
+The JSON includes a top-level `vif` section with per-feature values and a summary
+of features above 5 and 10, alongside the residual diagnostics and Moran's I
+output. The Moran output uses permutation-based inference when permutations are
 requested, and the validator still defaults to a small permutation sample when
 `--permutations 0` is passed for smoke tests.
 

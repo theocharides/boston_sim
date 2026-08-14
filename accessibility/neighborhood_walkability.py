@@ -71,8 +71,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels_preprocessed_with_baseline_vars.csv",
-        help="Output CSV path for the parcel table with baseline walkability variables.",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
+        help="Output CSV path for the updated parcel table with walkability included.",
     )
     parser.add_argument(
         "--score-column",

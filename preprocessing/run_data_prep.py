@@ -7,9 +7,10 @@ This script runs all preprocessing steps in sequence:
 3. add_neighborhood.py - Add Boston neighborhood tag via spatial join
 4. add_income.py - Add tract median household income
 5. add_employment_dist.py - Add employment center distances
+6. neighborhood_walkability.py - Add the baseline neighborhood walkability score
 
 Each step reads the output of the previous step and adds new columns,
-producing one canonical preprocessed table.
+producing one canonical preprocessed table with baseline variables included.
 """
 
 from __future__ import annotations
@@ -77,7 +78,7 @@ def parse_args() -> argparse.Namespace:
         "--output-csv",
         type=Path,
         default=repo_root / "inputs" / "parcels_preprocessed.csv",
-        help="Canonical preprocessed parcel table updated in-place by each pipeline step.",
+        help="Canonical parcel table with preprocessing and baseline-context variables included.",
     )
     parser.add_argument(
         "--skip-income",
@@ -89,6 +90,24 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Optional Census API key passed to add_income.py. If omitted, CENSUS_API_KEY is used.",
+    )
+    parser.add_argument(
+        "--max-walk-distance-m",
+        type=float,
+        default=1600.0,
+        help="Maximum walking distance used in the neighborhood_walkability baseline score.",
+    )
+    parser.add_argument(
+        "--distance-decay-exponent",
+        type=float,
+        default=1.0,
+        help="Distance decay exponent used for the walkability score.",
+    )
+    parser.add_argument(
+        "--synthetic-units-per-feature",
+        action="append",
+        default=None,
+        help="Optional category=value overrides used when generating synthetic amenity points for walkability. Repeat per category.",
     )
     
     args = parser.parse_args()
@@ -159,7 +178,22 @@ def main() -> None:
         parcels_csv=final_csv,
         output_csv=final_csv,
     )
-    
+
+    # Step 6: Add neighborhood walkability baseline score
+    walkability_kwargs = {
+        "parcels_csv": final_csv,
+        "output_csv": final_csv,
+        "max_walk_distance_m": args.max_walk_distance_m,
+        "distance_decay_exponent": args.distance_decay_exponent,
+    }
+    if args.synthetic_units_per_feature:
+        walkability_kwargs["synthetic_units_per_feature"] = args.synthetic_units_per_feature
+    run_step(
+        "neighborhood_walkability.py",
+        Path(__file__).resolve().parents[1] / "accessibility" / "neighborhood_walkability.py",
+        **walkability_kwargs,
+    )
+
     print("\n" + "="*70)
     print("Pipeline complete!")
     print(f"Final output: {final_csv}")

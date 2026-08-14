@@ -116,7 +116,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--parcels-csv",
         type=Path,
-        default=repo_root / "inputs" / "parcels_preprocessed_with_baseline_vars.csv",
+        default=repo_root / "inputs" / "parcels_preprocessed.csv",
         help="Preprocessed parcel CSV to simulate.",
     )
     parser.add_argument(
