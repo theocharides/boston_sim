@@ -13,45 +13,45 @@ If you do not pass features to `estimate_hedonic.py`, it uses the default featur
 ## Single-purpose workflow
 
 Each step below has one script location:
-- Feature selection: `hedonic/select_model.py`
+- Feature selection: `hedonic/workflow/select_model.py`
 - Final model estimation: `hedonic/train/estimate_hedonic.py`
-- Cross-validation reporting: `hedonic/run_cross_validation.py`
-- Validation diagnostics: `hedonic/validate_model.py`
+- Cross-validation reporting: `hedonic/workflow/run_cross_validation.py`
+- Validation diagnostics: `hedonic/validation/validate_model.py`
 
 ### 1) Select features
 Compare many candidate feature specifications, save performance results, and write the selected feature spec JSON.
 
 ```bash
-python -m hedonic.select_model
+python -m hedonic.workflow.select_model
 ```
 Outputs:
-- `hedonic/artifacts/residential_hedonic_model_comparison.csv`
-- `hedonic/artifacts/residential_hedonic_selected_spec.json`
+- `hedonic/workflow/residential_hedonic_model_comparison.csv`
+- `hedonic/workflow/residential_hedonic_feature_spec.json`
 
 Optional: require `neighborhood_walkability` in every tested combination.
 ```bash
-python -m hedonic.select_model --require-walkability
+python -m hedonic.workflow.select_model --require-walkability
 ```
 
 Recommended for larger feature pools: cap feature count to keep the search tractable.
 ```bash
-python -m hedonic.select_model --require-walkability --max-features 6
+python -m hedonic.workflow.select_model --require-walkability --max-features 6
 ```
 
 Optional: override the hard safety cap on total combinations.
 ```bash
-python -m hedonic.select_model --max-combinations 100000
+python -m hedonic.workflow.select_model --max-combinations 100000
 ```
 
 Optional: only write the comparison table and skip best-spec JSON.
 ```bash
-python -m hedonic.select_model --skip-selected-spec
+python -m hedonic.workflow.select_model --skip-selected-spec
 ```
 
 ### 2) Estimate the final model
 Estimate the production model using the selected spec file.
 ```bash
-python -m hedonic.train.estimate_hedonic --feature-spec-json hedonic/artifacts/residential_hedonic_selected_spec.json
+python -m hedonic.train.estimate_hedonic --feature-spec-json hedonic/workflow/residential_hedonic_feature_spec.json
 ```
 
 Outputs (in `hedonic/artifacts`):
@@ -62,18 +62,13 @@ Outputs (in `hedonic/artifacts`):
 ### 3) Run cross-validation
 Run K-fold CV in one dedicated script. This writes CV metrics only and does not train/export the production model artifact.
 ```bash
-python -m hedonic.run_cross_validation --feature-spec-json hedonic/artifacts/residential_hedonic_selected_spec.json --cv-folds 5
+python -m hedonic.workflow.run_cross_validation --feature-spec-json hedonic/workflow/residential_hedonic_feature_spec.json --cv-folds 5
 ```
 
 Output:
-- `hedonic/artifacts/residential_hedonic_cv_metrics.json`
+- `hedonic/workflow/residential_hedonic_cv_metrics.json`
 
-### 4) Run hedonic-specific regression tests
-```bash
-python -m pytest hedonic/tests/test_cross_validation.py -v
-```
-
-### 5) Run validation diagnostics (starting with Moran's I)
+### 4) Run validation diagnostics (starting with Moran's I)
 Compute Moran's I on log-residuals from the fitted production model to check for
 spatial autocorrelation in errors, using KNN row-standardized weights from
 `libpysal`.
@@ -84,7 +79,7 @@ scale-location charts, plus summary metrics for RMSE, MAE, R2, residual
 distribution shape, fitted/residual correlation, normality, and Moran's I.
 
 ```bash
-python -m hedonic.validate_model --input-csv inputs/parcels_processed_for_hedonic.csv --model-path hedonic/artifacts/residential_hedonic_model.joblib --k-neighbors 8 --permutations 199
+python -m hedonic.validation.validate_model --input-csv inputs/parcels_processed_for_hedonic.csv --model-path hedonic/artifacts/residential_hedonic_model.joblib --k-neighbors 8 --permutations 199
 ```
 
 This validation script is meant to assess the final fitted model on the same parcel

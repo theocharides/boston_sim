@@ -69,7 +69,7 @@ def test_postprocess_writes_lu_step_rows(tmp_path, monkeypatch):
 def test_selected_spec_creates_new_file_instead_of_overwriting(tmp_path):
     from hedonic import select_model
 
-    base_path = tmp_path / "residential_hedonic_selected_spec.json"
+    base_path = tmp_path / "residential_hedonic_feature_spec.json"
     base_path.write_text('{"features": ["old"]}', encoding="utf-8")
 
     next_path = select_model._unique_output_json_path(base_path)
@@ -77,4 +77,4 @@ def test_selected_spec_creates_new_file_instead_of_overwriting(tmp_path):
     assert next_path != base_path
     assert next_path.parent == tmp_path
     assert next_path.suffix == ".json"
-    assert next_path.name.startswith("residential_hedonic_selected_spec")
+    assert next_path.name.startswith("residential_hedonic_feature_spec")

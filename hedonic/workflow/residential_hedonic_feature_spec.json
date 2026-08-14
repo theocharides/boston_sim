@@ -1,0 +1,28 @@
+{
+  "name": "residential_level_balanced_selected",
+  "selected_from": "C:/Users/etheo/projects/boston_sim/boston_sim/hedonic/artifacts/residential_hedonic_model_comparison.csv",
+  "selection_criterion": "acceptable holdout thresholds must be met for r2_log, rmse_log, r2_level, and mae_level; among accepted rows, choose the highest balanced holdout score",
+  "acceptance_thresholds": {
+    "min_r2_log": 0.55,
+    "min_r2_level": 0.5,
+    "max_rmse_log": 0.25,
+    "max_mae_level": 300000.0
+  },
+  "features": [
+    "LU",
+    "LAND_SF",
+    "INT_COND",
+    "BLDG_TYPE",
+    "neighborhood_walkability",
+    "neighborhood_name"
+  ],
+  "metrics_snapshot": {
+    "r2_log": 0.8391086854348304,
+    "rmse_log": 0.2432726982787618,
+    "r2_level": 0.7910901592374014,
+    "mae_level": 248265.0934289533,
+    "rows_train": 55188,
+    "rows_test": 13797,
+    "balanced_holdout_score": 1.0
+  }
+}
