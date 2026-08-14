@@ -1,6 +1,6 @@
 # Tests
 
-This folder contains two test modules.
+This folder contains three test modules.
 
 ## 1. Preprocessed parcel validation
 
@@ -91,6 +91,21 @@ Test:
   - rows are preserved in step order
   - expected `area_name` values are present
 
+## 3. Hedonic preparation and model-input checks
+
+File: `tests/test_prepare_parcels_for_hedonic.py`
+
+Purpose:
+Validate the hedonic parcel-preparation workflow and core model-input cleaning assumptions used by training and validation.
+
+Tests:
+- `test_prepare_hedonic_dataframe_filters_and_clips`
+  Confirms `prepare_hedonic_dataframe` keeps residential land-use rows, returns the expected hedonic schema, and applies non-negative/valid clipping behavior for key fields.
+- `test_prepare_model_df_keeps_reasonable_rows_and_filters_invalid_targets`
+  Confirms `prepare_model_df` retains rows with varied feature quality inputs while still filtering non-positive target values.
+- `test_prepare_model_df_keeps_reasonable_structural_and_locational_rows`
+  Confirms structural and locational feature variants are preserved under current model-prep rules.
+
 ## Running tests
 
 Run all tests:
@@ -111,8 +126,15 @@ Run only the postprocessing regression test:
 python -m pytest tests/test_postprocess_simulation_outputs.py -v
 ```
 
+Run only the hedonic prep/model-input tests:
+
+```bash
+python -m pytest tests/test_prepare_parcels_for_hedonic.py -v
+```
+
 ## Current count
 
 - `test_preprocessed_parcels.py`: 33 tests
 - `test_postprocess_simulation_outputs.py`: 1 test
-- Total: 34 tests
+- `test_prepare_parcels_for_hedonic.py`: 3 tests
+- Total: 37 tests

@@ -1,6 +1,6 @@
 {
-  "input_csv": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\inputs\\parcels_processed_for_hedonic.csv",
-  "model_path": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_model.joblib",
+  "input_csv": "inputs/parcels_processed_for_hedonic.csv",
+  "model_path": "hedonic/artifacts/residential_hedonic_model.joblib",
   "residual_scale": "log",
   "feature_source": "fitted_model",
   "selected_features": [
@@ -84,12 +84,12 @@
       "cat__LU_RC"
     ]
   },
-  "plots_dir": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots",
+  "plots_dir": "hedonic/artifacts/residential_hedonic_validation_plots",
   "plot_paths": {
-    "observed_vs_predicted": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\observed_vs_predicted.png",
-    "residuals_vs_fitted": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\residuals_vs_fitted.png",
-    "residual_distribution": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\residual_distribution.png",
-    "qq_plot_standardized_residuals": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\qq_plot_standardized_residuals.png",
-    "scale_location": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\hedonic\\artifacts\\residential_hedonic_validation_plots\\scale_location.png"
+    "observed_vs_predicted": "hedonic/artifacts/residential_hedonic_validation_plots/observed_vs_predicted.png",
+    "residuals_vs_fitted": "hedonic/artifacts/residential_hedonic_validation_plots/residuals_vs_fitted.png",
+    "residual_distribution": "hedonic/artifacts/residential_hedonic_validation_plots/residual_distribution.png",
+    "qq_plot_standardized_residuals": "hedonic/artifacts/residential_hedonic_validation_plots/qq_plot_standardized_residuals.png",
+    "scale_location": "hedonic/artifacts/residential_hedonic_validation_plots/scale_location.png"
   }
 }

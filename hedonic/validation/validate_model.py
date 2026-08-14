@@ -32,7 +32,7 @@ from shared_utils import require_existing_path
 
 
 def parse_args() -> argparse.Namespace:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(
         description="Validate a fitted residential hedonic model with spatial residual diagnostics."
     )
@@ -122,6 +122,14 @@ def _fitted_model_feature_names(model: Any) -> list[str] | None:
         return [str(name) for name in preprocess.feature_names_in_]
 
     return None
+
+
+def _repo_relative_path(path: Path, repo_root: Path) -> str:
+    """Render a path relative to the repo root when possible, otherwise use the original string."""
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _parse_centroid_xy(geometry_wkt: pd.Series) -> tuple[np.ndarray, np.ndarray]:
@@ -380,6 +388,71 @@ def _design_matrix(model: Any, X: pd.DataFrame) -> np.ndarray:
     return dense.astype(float)
 
 
+def _vif_from_design_matrix(design_matrix: np.ndarray, feature_names: list[str]) -> dict[str, Any]:
+    """Compute variance inflation factors for the transformed design matrix."""
+    if not feature_names:
+        return {
+            "feature_vif": {},
+            "max_vif": None,
+            "n_features": 0,
+            "features_above_5": [],
+            "features_above_10": [],
+        }
+
+    matrix = np.asarray(design_matrix, dtype=float)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(-1, 1)
+
+    vif_by_feature: dict[str, float] = {}
+    above_5: list[str] = []
+    above_10: list[str] = []
+
+    for idx, feature_name in enumerate(feature_names):
+        if idx >= matrix.shape[1]:
+            vif_by_feature[feature_name] = float("nan")
+            continue
+
+        target = matrix[:, idx]
+        if np.allclose(target, target[0]):
+            vif_by_feature[feature_name] = float("nan")
+            continue
+
+        others = np.delete(matrix, idx, axis=1)
+        if others.shape[1] == 0:
+            vif = 1.0
+        else:
+            intercept = np.ones((others.shape[0], 1))
+            design = np.hstack([intercept, others])
+            coeffs, *_ = np.linalg.lstsq(design, target, rcond=None)
+            fitted = design @ coeffs
+            ss_total = float(np.sum((target - np.mean(target)) ** 2))
+            ss_residual = float(np.sum((target - fitted) ** 2))
+            r_squared = 0.0 if ss_total <= 0 else 1.0 - (ss_residual / ss_total)
+            vif = 1.0 / (1.0 - r_squared) if r_squared < 0.999999 else float("inf")
+
+        if np.isfinite(vif):
+            vif_by_feature[feature_name] = float(vif)
+            if vif > 10:
+                above_10.append(feature_name)
+            elif vif > 5:
+                above_5.append(feature_name)
+        else:
+            vif_by_feature[feature_name] = float("inf")
+            above_10.append(feature_name)
+
+    max_vif = max((value for value in vif_by_feature.values() if np.isfinite(value)), default=None)
+    if max_vif is not None and max_vif == float("inf"):
+        max_vif = None
+
+    return {
+        "feature_vif": vif_by_feature,
+        "max_vif": max_vif,
+        "n_features": len(feature_names),
+        "features_above_5": above_5,
+        "features_above_10": above_10,
+    }
+
+
 def _predict_from_design_matrix(
     design_matrix: np.ndarray,
     coef: np.ndarray,
@@ -449,7 +522,7 @@ def main() -> None:
     if "geometry" not in df.columns:
         raise ValueError(
             "Input CSV must contain a geometry column in WKT format. "
-            "Use inputs/parcels_preprocessed_with_baseline_vars.csv or another table that retains geometry."
+            "Use inputs/parcels_preprocessed.csv or another table that retains geometry."
         )
 
     feature_source = "fitted_model"
@@ -486,7 +559,10 @@ def main() -> None:
     y_level = model_df[TARGET_COL].to_numpy(dtype=float)
     y_log = np.log1p(y_level)
 
+    preprocess = model.named_steps["preprocess"]
     design_matrix = _design_matrix(model, X)
+    feature_names = list(preprocess.get_feature_names_out())
+    vif = _vif_from_design_matrix(design_matrix, feature_names)
     ridge = model.named_steps["ridge"]
     pred_log = _predict_from_design_matrix(
         design_matrix=design_matrix,
@@ -544,9 +620,10 @@ def main() -> None:
         residuals=residual_for_moran,
     )
 
+    repo_root = Path(__file__).resolve().parents[2]
     output = {
-        "input_csv": str(args.input_csv),
-        "model_path": str(args.model_path),
+        "input_csv": _repo_relative_path(args.input_csv, repo_root),
+        "model_path": _repo_relative_path(args.model_path, repo_root),
         "residual_scale": args.residual_scale,
         "feature_source": feature_source,
         "selected_features": feature_list,
@@ -558,8 +635,9 @@ def main() -> None:
         "sample_size": int(args.sample_size),
         "residual_diagnostics": residual_metrics,
         "morans_i": moran,
-        "plots_dir": str(plots_dir),
-        "plot_paths": plot_paths,
+        "vif": vif,
+        "plots_dir": _repo_relative_path(plots_dir, repo_root),
+        "plot_paths": {name: _repo_relative_path(path, repo_root) for name, path in plot_paths.items()},
     }
 
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
