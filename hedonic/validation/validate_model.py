@@ -19,6 +19,8 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from scipy import stats
 from shapely import wkt
+from spreg import OLS
+from spreg.diagnostics_sp import LMtests
 
 from hedonic.common.modeling_common import (
     DEFAULT_FEATURE_SET,
@@ -124,12 +126,35 @@ def _fitted_model_feature_names(model: Any) -> list[str] | None:
     return None
 
 
-def _repo_relative_path(path: Path, repo_root: Path) -> str:
+def _repo_relative_path(path: Path | str, repo_root: Path) -> str:
     """Render a path relative to the repo root when possible, otherwise use the original string."""
+    candidate = Path(path).expanduser() if isinstance(path, str) else path.expanduser()
+    resolved_path = candidate.resolve()
+    resolved_root = repo_root.resolve()
     try:
-        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+        return resolved_path.relative_to(resolved_root).as_posix()
     except ValueError:
-        return str(path)
+        # Keep absolute paths for artifacts generated outside of the repository root.
+        return resolved_path.as_posix()
+
+
+def _build_connected_knn_weights(coords: np.ndarray, k_neighbors: int) -> tuple[Any, int, int]:
+    """Build KNN weights and increase k until the graph is connected (or max feasible k)."""
+    n_obs = int(coords.shape[0])
+    if n_obs < 2:
+        raise ValueError("At least two observations are required to build spatial weights")
+
+    k = max(1, min(int(k_neighbors), n_obs - 1))
+    max_k = min(64, n_obs - 1)
+
+    while True:
+        w = libpysal.weights.KNN.from_array(coords, k=k)
+        component_labels = w.component_labels
+        component_count = len(set(component_labels)) if component_labels is not None else 1
+        if component_count <= 1 or k >= max_k:
+            w.transform = "r"
+            return w, k, component_count
+        k = min(max_k, k + 2)
 
 
 def _parse_centroid_xy(geometry_wkt: pd.Series) -> tuple[np.ndarray, np.ndarray]:
@@ -330,8 +355,7 @@ def _morans_i_knn(
     if float(np.var(values)) <= 0.0:
         raise ValueError("Residual variance is zero; Moran's I is undefined.")
 
-    weights = libpysal.weights.KNN.from_array(coords, k=k_eff)
-    weights.transform = "r"
+    weights, k_used, component_count = _build_connected_knn_weights(coords, k_eff)
 
     weight_matrix = weights.sparse.tocsr()
     centered = values.astype(float) - float(np.mean(values))
@@ -368,6 +392,8 @@ def _morans_i_knn(
     return {
         "n": n,
         "k_neighbors": k_eff,
+        "k_neighbors_used": int(k_used),
+        "connected_components": int(component_count),
         "morans_i": float(morans_i),
         "z_score": z_score,
         "permutations_requested": int(permutations),
@@ -386,6 +412,215 @@ def _design_matrix(model: Any, X: pd.DataFrame) -> np.ndarray:
     if dense.ndim == 1:
         dense = dense.reshape(-1, 1)
     return dense.astype(float)
+
+
+def _extract_test_pair(test_value: Any) -> tuple[float, float]:
+    if isinstance(test_value, tuple) and len(test_value) >= 2:
+        return float(test_value[0]), float(test_value[1])
+    if isinstance(test_value, dict):
+        stat = test_value.get("statistic", test_value.get("value", np.nan))
+        p_value = test_value.get("p_value", test_value.get("p", np.nan))
+        return float(stat), float(p_value)
+    if test_value is None:
+        return float("nan"), float("nan")
+    return float("nan"), float("nan")
+
+
+def _classify_spatial_dependence(lm_tests: dict[str, Any]) -> dict[str, Any]:
+    """Choose the more likely spatial process from robust LM diagnostics."""
+    def _get_stats(name: str) -> tuple[float, float]:
+        if name not in lm_tests:
+            return float("nan"), float("nan")
+        return _extract_test_pair(lm_tests[name])
+
+    lme_stat, lme_p = _get_stats("lme")
+    lml_stat, lml_p = _get_stats("lml")
+    rlme_stat, rlme_p = _get_stats("rlme")
+    rlml_stat, rlml_p = _get_stats("rlml")
+    sarma_stat, sarma_p = _get_stats("sarma")
+
+    strong_error = np.isfinite(rlme_stat) and np.isfinite(rlme_p) and rlme_p < 0.05
+    strong_lag = np.isfinite(rlml_stat) and np.isfinite(rlml_p) and rlml_p < 0.05
+    strong_sarma = np.isfinite(sarma_stat) and np.isfinite(sarma_p) and sarma_p < 0.05
+
+    if strong_lag and (np.isnan(rlme_stat) or rlml_stat >= rlme_stat):
+        classification = "spatial lag"
+        reason = "robust LM lag test is significant and exceeds robust LM error evidence"
+    elif strong_error and (np.isnan(rlml_stat) or rlme_stat >= rlml_stat):
+        classification = "spatial error"
+        reason = "robust LM error test is significant and exceeds robust LM lag evidence"
+    elif np.isfinite(lml_stat) and np.isfinite(lme_stat) and lml_p < 0.05 and lme_p >= 0.05 and lml_stat >= lme_stat:
+        classification = "spatial lag"
+        reason = "LM lag is significant while LM error is not"
+    elif np.isfinite(lme_stat) and np.isfinite(lml_stat) and lme_p < 0.05 and lml_p >= 0.05 and lme_stat >= lml_stat:
+        classification = "spatial error"
+        reason = "LM error is significant while LM lag is not"
+    elif strong_sarma:
+        classification = "ambiguous"
+        reason = "SARMA test is significant, suggesting a combined lag/error process"
+    else:
+        classification = "ambiguous"
+        reason = "no LM test clearly dominates; evidence is weak or mixed"
+
+    return {
+        "classification": classification,
+        "reason": reason,
+        "lm_error": {"statistic": lme_stat, "p_value": lme_p},
+        "lm_lag": {"statistic": lml_stat, "p_value": lml_p},
+        "robust_lm_error": {"statistic": rlme_stat, "p_value": rlme_p},
+        "robust_lm_lag": {"statistic": rlml_stat, "p_value": rlml_p},
+        "sarma": {"statistic": sarma_stat, "p_value": sarma_p},
+    }
+
+
+def _spatial_lm_diagnostics(
+    X: np.ndarray,
+    y: np.ndarray,
+    coords: np.ndarray,
+    k_neighbors: int,
+) -> dict[str, Any]:
+    """Run LM lag/error diagnostics using a KNN-weighted OLS baseline."""
+    n = int(X.shape[0])
+    if n < 3:
+        return {
+            "available": False,
+            "reason": "fewer than 3 rows available for spatial diagnostics",
+        }
+
+    y_2d = np.asarray(y, dtype=float).reshape(-1, 1)
+    X_2d = np.asarray(X, dtype=float)
+    if X_2d.ndim == 1:
+        X_2d = X_2d.reshape(-1, 1)
+
+    if not np.all(np.isfinite(X_2d)) or not np.all(np.isfinite(y_2d)):
+        return {
+            "available": False,
+            "reason": "design matrix or target contains non-finite values; spatial LM diagnostics skipped",
+        }
+
+    # Stabilize the matrix passed to spreg by removing constant and collinear columns.
+    col_stds = np.std(X_2d, axis=0)
+    non_constant_mask = np.isfinite(col_stds) & (col_stds > 1e-12)
+    if not np.any(non_constant_mask):
+        return {
+            "available": False,
+            "reason": "design matrix has no non-constant columns after filtering; spatial LM diagnostics skipped",
+        }
+
+    X_work = X_2d[:, non_constant_mask]
+    full_rank_idx: list[int] = []
+    for local_idx in range(X_work.shape[1]):
+        trial_idx = full_rank_idx + [local_idx]
+        trial_matrix = X_work[:, trial_idx]
+        if np.linalg.matrix_rank(trial_matrix) > len(full_rank_idx):
+            full_rank_idx.append(local_idx)
+
+    if not full_rank_idx:
+        return {
+            "available": False,
+            "reason": "design matrix is rank-deficient; spatial LM diagnostics skipped",
+        }
+
+    dropped_for_collinearity = int(X_work.shape[1] - len(full_rank_idx))
+    X_work = X_work[:, full_rank_idx]
+    kept_feature_count = int(X_work.shape[1])
+
+    k_eff = min(int(k_neighbors), max(1, n - 1))
+    candidate_ks = [k_eff, 4, 6, 8, 10, 12, 16, 24, 32, 48, 64]
+    candidate_ks = [k for k in dict.fromkeys(candidate_ks) if 1 <= k <= max(1, n - 1)]
+
+    lm = None
+    k_used = k_eff
+    component_count = 0
+    rows_used = n
+    fallback_applied = False
+    last_error = "unknown failure"
+
+    for k_try in candidate_ks:
+        try:
+            weights, k_used_try, component_count_try = _build_connected_knn_weights(coords[:n], k_try)
+        except Exception as exc:
+            last_error = f"k={k_try}: unable to build weights ({exc})"
+            continue
+
+        if weights.s0 <= 0:
+            last_error = f"k={k_try}: weights matrix is empty"
+            continue
+
+        try:
+            ols_model = OLS(y_2d, X_work)
+            lm = LMtests(ols_model, weights, tests=["all"])
+            k_used = k_used_try
+            component_count = component_count_try
+            rows_used = n
+            break
+        except np.linalg.LinAlgError as exc:
+            last_error = f"k={k_try}: linear algebra instability ({exc})"
+            continue
+        except ValueError as exc:
+            last_error = f"k={k_try}: {exc}"
+            if "math domain error" not in str(exc).lower() or component_count_try <= 1:
+                continue
+
+            labels = np.asarray(weights.component_labels)
+            unique_labels, counts = np.unique(labels, return_counts=True)
+            keep_label = unique_labels[int(np.argmax(counts))]
+            keep_mask = labels == keep_label
+            n_component = int(np.sum(keep_mask))
+            if n_component < 30:
+                last_error = (
+                    f"k={k_try}: math domain error and largest component too small "
+                    f"(n={n_component})"
+                )
+                continue
+
+            X_component = X_work[keep_mask]
+            y_component = y_2d[keep_mask]
+            coords_component = coords[:n][keep_mask]
+            k_component = min(k_used_try, max(1, n_component - 1))
+            try:
+                weights_component, k_component_used, component_count_component = _build_connected_knn_weights(
+                    coords_component,
+                    k_component,
+                )
+                ols_model = OLS(y_component, X_component)
+                lm = LMtests(ols_model, weights_component, tests=["all"])
+                k_used = k_component_used
+                component_count = component_count_component
+                rows_used = n_component
+                fallback_applied = True
+                break
+            except Exception as fallback_exc:
+                last_error = f"k={k_try}: largest-component fallback failed ({fallback_exc})"
+                continue
+        except Exception as exc:  # pragma: no cover - defensive trap for unexpected spreg failures
+            last_error = f"k={k_try}: unexpected LM failure ({exc})"
+            continue
+
+    if lm is None:
+        return {
+            "available": False,
+            "reason": f"spatial LM diagnostics could not be computed: {last_error}",
+            "k_neighbors_attempted": [int(k) for k in candidate_ks],
+        }
+
+    result = {
+        "available": True,
+        "k_neighbors": k_eff,
+        "k_neighbors_used": int(k_used),
+        "connected_components": int(component_count),
+        "rows_used": int(rows_used),
+        "largest_component_fallback": bool(fallback_applied),
+        "features_used": kept_feature_count,
+        "features_dropped_for_collinearity": dropped_for_collinearity,
+        "lme": {"statistic": float(lm.lme[0]), "p_value": float(lm.lme[1])},
+        "lml": {"statistic": float(lm.lml[0]), "p_value": float(lm.lml[1])},
+        "rlme": {"statistic": float(lm.rlme[0]), "p_value": float(lm.rlme[1])},
+        "rlml": {"statistic": float(lm.rlml[0]), "p_value": float(lm.rlml[1])},
+        "sarma": {"statistic": float(lm.sarma[0]), "p_value": float(lm.sarma[1])},
+    }
+    result["dependence_classification"] = _classify_spatial_dependence(result)
+    return result
 
 
 def _vif_from_design_matrix(design_matrix: np.ndarray, feature_names: list[str]) -> dict[str, Any]:
@@ -586,9 +821,13 @@ def main() -> None:
         plot_true_values = y_log
 
     coords, keep_mask = _parse_centroid_xy(geometry_series.reset_index(drop=True))
-    residual_for_moran = residual_values[keep_mask]
-    fitted_for_moran = plot_fitted_values[keep_mask]
-    y_true_for_moran = plot_true_values[keep_mask]
+    valid_idx = np.flatnonzero(keep_mask)
+
+    residual_for_moran = residual_values[valid_idx]
+    fitted_for_moran = plot_fitted_values[valid_idx]
+    y_true_for_moran = plot_true_values[valid_idx]
+    design_for_lm = np.asarray(design_matrix[valid_idx], dtype=float)
+    y_for_lm = np.asarray(y_log[valid_idx], dtype=float)
 
     if args.sample_size > 0 and args.sample_size < residual_for_moran.shape[0]:
         rng = np.random.default_rng(args.random_seed)
@@ -596,6 +835,8 @@ def main() -> None:
         residual_for_moran = residual_for_moran[sample_idx]
         fitted_for_moran = fitted_for_moran[sample_idx]
         y_true_for_moran = y_true_for_moran[sample_idx]
+        design_for_lm = design_for_lm[sample_idx]
+        y_for_lm = y_for_lm[sample_idx]
         coords = coords[sample_idx]
 
     residual_metrics = _residual_diagnostics(
@@ -609,6 +850,13 @@ def main() -> None:
         k_neighbors=args.k_neighbors,
         permutations=args.permutations,
         random_seed=args.random_seed,
+    )
+
+    lm_diagnostics = _spatial_lm_diagnostics(
+        X=design_for_lm,
+        y=y_for_lm,
+        coords=coords,
+        k_neighbors=args.k_neighbors,
     )
 
     plots_dir = args.output_json.parent / f"{args.output_json.stem}_plots"
@@ -635,6 +883,8 @@ def main() -> None:
         "sample_size": int(args.sample_size),
         "residual_diagnostics": residual_metrics,
         "morans_i": moran,
+        "spatial_lm_tests": lm_diagnostics,
+        "spatial_dependence": lm_diagnostics.get("dependence_classification", {}),
         "vif": vif,
         "plots_dir": _repo_relative_path(plots_dir, repo_root),
         "plot_paths": {name: _repo_relative_path(path, repo_root) for name, path in plot_paths.items()},

@@ -1,0 +1,115 @@
+{
+  "input_csv": "C:\\Users\\etheo\\projects\\boston_sim\\boston_sim\\inputs\\parcels_processed_for_hedonic.csv",
+  "rows_residential": 68985,
+  "rows_model": 68985,
+  "rows_discovery": 55188,
+  "rows_evaluation": 13797,
+  "sample_size": 0,
+  "target": "TOTAL_VALUE",
+  "feature_source": "DEFAULT_FEATURE_SET",
+  "candidate_features": [
+    "LU",
+    "BLDG_TYPE",
+    "RES_FLOOR",
+    "OVERALL_COND",
+    "INT_COND",
+    "YR_BUILT",
+    "LAND_SF",
+    "GROSS_AREA",
+    "LIVING_AREA",
+    "neighborhood_walkability",
+    "emp_dist_m",
+    "median_hh_income"
+  ],
+  "split_design": {
+    "evaluation_share": 0.2,
+    "leakage_rule": "feature_selection_and_inference_use_discovery_only"
+  },
+  "step_a_benchmark_ols": {
+    "description": "Benchmark OLS trained on discovery and evaluated on held-out evaluation set",
+    "metrics": {
+      "r2_log": 0.8472074577507069,
+      "rmse_log": 0.23706983983812127,
+      "r2_level": 0.8710781455899009,
+      "rmse_level": 455809.4525212188,
+      "mae_level": 222262.43019470654
+    }
+  },
+  "step_b_lasso_cv": {
+    "alpha": 0.0004460416740662539,
+    "cv_folds": 5,
+    "coef_threshold": 0.1,
+    "min_categorical_dummies": 2,
+    "selected_features": [
+      "LU",
+      "LIVING_AREA",
+      "emp_dist_m",
+      "median_hh_income"
+    ],
+    "surviving_transformed_features": [
+      {
+        "transformed_feature": "num__LIVING_AREA",
+        "coefficient": 0.29582831470826415,
+        "base_feature": "LIVING_AREA"
+      },
+      {
+        "transformed_feature": "num__emp_dist_m",
+        "coefficient": -0.12053667627908878,
+        "base_feature": "emp_dist_m"
+      },
+      {
+        "transformed_feature": "num__median_hh_income",
+        "coefficient": 0.15327185525319273,
+        "base_feature": "median_hh_income"
+      },
+      {
+        "transformed_feature": "cat__LU_CM",
+        "coefficient": 0.3820717592084775,
+        "base_feature": "LU"
+      },
+      {
+        "transformed_feature": "cat__LU_R1",
+        "coefficient": 0.38957554227249086,
+        "base_feature": "LU"
+      },
+      {
+        "transformed_feature": "cat__LU_R2",
+        "coefficient": 0.35764687236856013,
+        "base_feature": "LU"
+      },
+      {
+        "transformed_feature": "cat__LU_R3",
+        "coefficient": 0.334398904080176,
+        "base_feature": "LU"
+      }
+    ],
+    "categorical_surviving_counts": {
+      "LU": 4
+    },
+    "n_selected_base_features": 4,
+    "n_surviving_transformed_features": 7
+  },
+  "step_c_final_ols": {
+    "description": "Final OLS inference on discovery set using LASSO-selected variables",
+    "selected_features": [
+      "LU",
+      "LIVING_AREA",
+      "emp_dist_m",
+      "median_hh_income"
+    ],
+    "nobs": 55188,
+    "r_squared": 0.8186175233975242,
+    "adj_r_squared": 0.8185879383765119,
+    "f_statistic": 27669.999729064886,
+    "f_pvalue": 0.0,
+    "aic": 6737.90748389512,
+    "bic": 6827.092492068399,
+    "evaluation_metrics_selected_subset": {
+      "r2_log": 0.8216917839559852,
+      "rmse_log": 0.25610078241025547,
+      "r2_level": 0.8363200771226948,
+      "rmse_level": 513591.4216796287,
+      "mae_level": 250302.17184370087
+    }
+  }
+}

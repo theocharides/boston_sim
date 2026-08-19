@@ -1,0 +1,29 @@
+{
+  "features": [
+    "LU",
+    "LIVING_AREA",
+    "emp_dist_m",
+    "median_hh_income"
+  ],
+  "selected_from": [
+    "LU",
+    "BLDG_TYPE",
+    "RES_FLOOR",
+    "OVERALL_COND",
+    "INT_COND",
+    "YR_BUILT",
+    "LAND_SF",
+    "GROSS_AREA",
+    "LIVING_AREA",
+    "neighborhood_walkability",
+    "emp_dist_m",
+    "median_hh_income"
+  ],
+  "selection": {
+    "method": "LassoCV",
+    "alpha": 0.0004460416740662539,
+    "cv_folds": 5,
+    "coef_threshold": 0.1,
+    "min_categorical_dummies": 2
+  }
+}

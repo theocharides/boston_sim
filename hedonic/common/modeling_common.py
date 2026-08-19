@@ -34,14 +34,21 @@ RESIDENTIAL_LU_CODES = {
 }
 
 STRUCTURAL_FEATURES = [
-    "LAND_SF", 
+    "LU",
+    "BLDG_TYPE",
+    "RES_FLOOR",
+    "OVERALL_COND",
     "INT_COND",
-    "LU"
+    "YR_BUILT",
+    "LAND_SF",
+    "GROSS_AREA",
+    "LIVING_AREA",
 ]
 
 LOC_NEIGHBORHOOD_FEATURES = [
     "neighborhood_walkability",
-    "emp_dist_m"
+    "emp_dist_m",
+    "median_hh_income"
 ]
 
 DEFAULT_FEATURE_SET = [*STRUCTURAL_FEATURES, *LOC_NEIGHBORHOOD_FEATURES]
