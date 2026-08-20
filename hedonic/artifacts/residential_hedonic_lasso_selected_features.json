@@ -21,7 +21,7 @@
   ],
   "selection": {
     "method": "LassoCV",
-    "alpha": 0.0004460416740662539,
+    "alpha": 0.0004188878830455945,
     "cv_folds": 5,
     "coef_threshold": 0.1,
     "min_categorical_dummies": 2

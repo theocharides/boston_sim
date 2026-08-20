@@ -16,6 +16,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 TARGET_COL = "TOTAL_VALUE"
+PRICE_PER_SQFT_COL = "PRICE_PER_SQFT"
+LOG_PRICE_PER_SQFT_COL = "LOG_PRICE_PER_SQFT"
+SQFT_FEATURE_SUFFIXES = ("_SF", "_AREA")
+SQFT_FEATURE_NAMES = {"LIVING_AREA"}
 
 RESIDENTIAL_FILTER_COLUMNS = [
     "LU",
@@ -146,6 +150,47 @@ def prepare_model_df(
         model_df[col] = as_text.replace({"": np.nan, "nan": np.nan, "None": np.nan})
 
     model_df = model_df[model_df[target_col].notna() & (model_df[target_col] > 0)]
+    return model_df
+
+
+def _is_sqft_feature(feature_name: str) -> bool:
+    upper_name = feature_name.upper()
+    return upper_name.endswith(SQFT_FEATURE_SUFFIXES) or upper_name in SQFT_FEATURE_NAMES
+
+
+def prepare_price_per_sqft_model_df(
+    df: pd.DataFrame,
+    numeric_features: list[str],
+    categorical_features: list[str],
+    target_value_col: str = TARGET_COL,
+) -> pd.DataFrame:
+    """Prepare model data using log(price per sqft) as the dependent variable and log sqft features."""
+    model_df = prepare_model_df(
+        df,
+        numeric_features=numeric_features,
+        categorical_features=categorical_features,
+        target_col=target_value_col,
+    )
+
+    if "LIVING_AREA" not in model_df.columns:
+        raise ValueError("Price-per-sqft target requires LIVING_AREA in the input data.")
+
+    living_area = pd.to_numeric(model_df["LIVING_AREA"], errors="coerce")
+    model_df = model_df[living_area.notna() & (living_area > 0)].copy()
+    living_area = pd.to_numeric(model_df["LIVING_AREA"], errors="coerce")
+
+    price_per_sqft = pd.to_numeric(model_df[target_value_col], errors="coerce") / living_area
+    model_df = model_df[np.isfinite(price_per_sqft) & (price_per_sqft > 0)].copy()
+    living_area = pd.to_numeric(model_df["LIVING_AREA"], errors="coerce")
+    price_per_sqft = pd.to_numeric(model_df[target_value_col], errors="coerce") / living_area
+
+    model_df[PRICE_PER_SQFT_COL] = price_per_sqft.astype(float)
+    model_df[LOG_PRICE_PER_SQFT_COL] = np.log1p(model_df[PRICE_PER_SQFT_COL].astype(float))
+
+    for feature_name in numeric_features:
+        if _is_sqft_feature(feature_name) and feature_name in model_df.columns:
+            model_df[feature_name] = np.log1p(pd.to_numeric(model_df[feature_name], errors="coerce")).astype(float)
+
     return model_df
 
 

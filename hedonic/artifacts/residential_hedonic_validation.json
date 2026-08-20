@@ -1,0 +1,161 @@
+{
+  "input_csv": "inputs/parcels_processed_for_hedonic.csv",
+  "model_path": null,
+  "selected_features_json": "hedonic/artifacts/residential_hedonic_lasso_selected_features.json",
+  "coefficients_csv": "hedonic/artifacts/residential_hedonic_final_ols_coefficients.csv",
+  "residual_scale": "log",
+  "feature_source": "selected_features_json",
+  "selected_features": [
+    "LU",
+    "LIVING_AREA",
+    "emp_dist_m",
+    "median_hh_income"
+  ],
+  "numeric_features": [
+    "LIVING_AREA",
+    "emp_dist_m",
+    "median_hh_income"
+  ],
+  "categorical_features": [
+    "LU"
+  ],
+  "rows_residential": 68985,
+  "rows_model": 68985,
+  "rows_with_valid_geometry": 68985,
+  "sample_size": 0,
+  "residual_diagnostics": {
+    "residual_mean": 0.0005396176832183536,
+    "residual_std": 0.25694612195713884,
+    "residual_min": -1.735193366335297,
+    "residual_max": 1.91892262423457,
+    "residual_median": -0.002018848893365899,
+    "residual_skewness": 0.026366358365334432,
+    "residual_excess_kurtosis": 2.4066789845722933,
+    "fitted_residual_correlation": 0.0013789335884681723,
+    "residual_normaltest_statistic": 3904.4550614002387,
+    "residual_normaltest_pvalue": 0.0,
+    "scaled_location_mean": 0.7754937292243218
+  },
+  "morans_i": {
+    "n": 68985,
+    "k_neighbors": 8,
+    "k_neighbors_used": 64,
+    "connected_components": 4,
+    "morans_i": 0.46143053387988336,
+    "z_score": 713.7458758864308,
+    "permutations_requested": 199,
+    "permutations_used": 199,
+    "inference": "permutation",
+    "permutation_mean": 5.929745183870247e-07,
+    "permutation_std": 0.000646490517836332,
+    "p_value_two_sided": 0.005
+  },
+  "spatial_lm_tests": {
+    "available": true,
+    "k_neighbors": 8,
+    "k_neighbors_used": 64,
+    "connected_components": 4,
+    "rows_used": 68985,
+    "largest_component_fallback": false,
+    "features_used": 9,
+    "features_dropped_for_collinearity": 0,
+    "lme": {
+      "statistic": 501471.84716308577,
+      "p_value": 0.0
+    },
+    "lml": {
+      "statistic": 63788.39560810208,
+      "p_value": 0.0
+    },
+    "rlme": {
+      "statistic": 442983.07937816123,
+      "p_value": 0.0
+    },
+    "rlml": {
+      "statistic": 5299.627823177608,
+      "p_value": 0.0
+    },
+    "sarma": {
+      "statistic": 506771.4749862634,
+      "p_value": 0.0
+    },
+    "dependence_classification": {
+      "classification": "spatial error",
+      "reason": "robust LM error test is significant and exceeds robust LM lag evidence",
+      "lm_error": {
+        "statistic": 501471.84716308577,
+        "p_value": 0.0
+      },
+      "lm_lag": {
+        "statistic": 63788.39560810208,
+        "p_value": 0.0
+      },
+      "robust_lm_error": {
+        "statistic": 442983.07937816123,
+        "p_value": 0.0
+      },
+      "robust_lm_lag": {
+        "statistic": 5299.627823177608,
+        "p_value": 0.0
+      },
+      "sarma": {
+        "statistic": 506771.4749862634,
+        "p_value": 0.0
+      }
+    }
+  },
+  "spatial_dependence": {
+    "classification": "spatial error",
+    "reason": "robust LM error test is significant and exceeds robust LM lag evidence",
+    "lm_error": {
+      "statistic": 501471.84716308577,
+      "p_value": 0.0
+    },
+    "lm_lag": {
+      "statistic": 63788.39560810208,
+      "p_value": 0.0
+    },
+    "robust_lm_error": {
+      "statistic": 442983.07937816123,
+      "p_value": 0.0
+    },
+    "robust_lm_lag": {
+      "statistic": 5299.627823177608,
+      "p_value": 0.0
+    },
+    "sarma": {
+      "statistic": 506771.4749862634,
+      "p_value": 0.0
+    }
+  },
+  "vif": {
+    "feature_vif": {
+      "LIVING_AREA": 1.898553970266831,
+      "emp_dist_m": 1.3017592562462965,
+      "median_hh_income": 1.131825054000127,
+      "LU_CM": 32.19226790589213,
+      "LU_R1": 75.96340910938765,
+      "LU_R2": 56.14891198845647,
+      "LU_R3": 47.66924448061823,
+      "LU_R4": 1.160818279249801,
+      "LU_RC": 1.0313006957296655
+    },
+    "max_vif": 75.96340910938765,
+    "n_features": 9,
+    "features_above_5": [],
+    "features_above_10": [
+      "LU_CM",
+      "LU_R1",
+      "LU_R2",
+      "LU_R3"
+    ]
+  },
+  "plots_dir": "hedonic/artifacts/residential_hedonic_validation_plots",
+  "plot_paths": {
+    "observed_vs_predicted": "hedonic/artifacts/residential_hedonic_validation_plots/observed_vs_predicted.png",
+    "residuals_vs_fitted": "hedonic/artifacts/residential_hedonic_validation_plots/residuals_vs_fitted.png",
+    "residual_distribution": "hedonic/artifacts/residential_hedonic_validation_plots/residual_distribution.png",
+    "qq_plot_standardized_residuals": "hedonic/artifacts/residential_hedonic_validation_plots/qq_plot_standardized_residuals.png",
+    "scale_location": "hedonic/artifacts/residential_hedonic_validation_plots/scale_location.png"
+  }
+}

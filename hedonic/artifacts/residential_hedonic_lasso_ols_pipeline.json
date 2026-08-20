@@ -6,6 +6,12 @@
   "rows_evaluation": 13797,
   "sample_size": 0,
   "target": "TOTAL_VALUE",
+  "model_target": "LOG_PRICE_PER_SQFT",
+  "log_transformed_numeric_features": [
+    "LAND_SF",
+    "GROSS_AREA",
+    "LIVING_AREA"
+  ],
   "feature_source": "DEFAULT_FEATURE_SET",
   "candidate_features": [
     "LU",
@@ -28,15 +34,15 @@
   "step_a_benchmark_ols": {
     "description": "Benchmark OLS trained on discovery and evaluated on held-out evaluation set",
     "metrics": {
-      "r2_log": 0.8472074577507069,
-      "rmse_log": 0.23706983983812127,
-      "r2_level": 0.8710781455899009,
-      "rmse_level": 455809.4525212188,
-      "mae_level": 222262.43019470654
+      "r2_log": 0.6769040734022318,
+      "rmse_log": 0.24914902228648877,
+      "r2_level": 0.6695709625533739,
+      "rmse_level": 129.91400610817516,
+      "mae_level": 82.44180171221844
     }
   },
   "step_b_lasso_cv": {
-    "alpha": 0.0004460416740662539,
+    "alpha": 0.0004188878830455945,
     "cv_folds": 5,
     "coef_threshold": 0.1,
     "min_categorical_dummies": 2,
@@ -49,37 +55,37 @@
     "surviving_transformed_features": [
       {
         "transformed_feature": "num__LIVING_AREA",
-        "coefficient": 0.29582831470826415,
+        "coefficient": 0.21160637378607056,
         "base_feature": "LIVING_AREA"
       },
       {
         "transformed_feature": "num__emp_dist_m",
-        "coefficient": -0.12053667627908878,
+        "coefficient": -0.13022525411142014,
         "base_feature": "emp_dist_m"
       },
       {
         "transformed_feature": "num__median_hh_income",
-        "coefficient": 0.15327185525319273,
+        "coefficient": 0.15260461348614687,
         "base_feature": "median_hh_income"
       },
       {
         "transformed_feature": "cat__LU_CM",
-        "coefficient": 0.3820717592084775,
+        "coefficient": 0.39226708057751114,
         "base_feature": "LU"
       },
       {
         "transformed_feature": "cat__LU_R1",
-        "coefficient": 0.38957554227249086,
+        "coefficient": 0.41174615974056045,
         "base_feature": "LU"
       },
       {
         "transformed_feature": "cat__LU_R2",
-        "coefficient": 0.35764687236856013,
+        "coefficient": 0.34189199557473665,
         "base_feature": "LU"
       },
       {
         "transformed_feature": "cat__LU_R3",
-        "coefficient": 0.334398904080176,
+        "coefficient": 0.3270855311734301,
         "base_feature": "LU"
       }
     ],
@@ -98,18 +104,18 @@
       "median_hh_income"
     ],
     "nobs": 55188,
-    "r_squared": 0.8186175233975242,
-    "adj_r_squared": 0.8185879383765119,
-    "f_statistic": 27669.999729064886,
+    "r_squared": 0.615130727315913,
+    "adj_r_squared": 0.6150679518718202,
+    "f_statistic": 9798.906821046412,
     "f_pvalue": 0.0,
-    "aic": 6737.90748389512,
-    "bic": 6827.092492068399,
+    "aic": 12449.656017618676,
+    "bic": 12538.841025791955,
     "evaluation_metrics_selected_subset": {
-      "r2_log": 0.8216917839559852,
-      "rmse_log": 0.25610078241025547,
-      "r2_level": 0.8363200771226948,
-      "rmse_level": 513591.4216796287,
-      "mae_level": 250302.17184370087
+      "r2_log": 0.6194659164447927,
+      "rmse_log": 0.2703897515206078,
+      "r2_level": 0.5635239512635285,
+      "rmse_level": 149.31281423697158,
+      "mae_level": 94.01258734805693
     }
   }
 }

@@ -24,9 +24,12 @@ from spreg.diagnostics_sp import LMtests
 
 from hedonic.common.modeling_common import (
     DEFAULT_FEATURE_SET,
+    LOG_PRICE_PER_SQFT_COL,
+    PRICE_PER_SQFT_COL,
     TARGET_COL,
     available_features,
     infer_feature_types,
+    prepare_price_per_sqft_model_df,
     prepare_model_df,
     subset_residential_rows,
 )
@@ -47,8 +50,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-path",
         type=Path,
-        default=repo_root / "hedonic" / "artifacts" / "residential_hedonic_model.joblib",
-        help="Path to fitted hedonic model artifact.",
+        default=None,
+        help="Optional path to legacy fitted hedonic model artifact (.joblib).",
+    )
+    parser.add_argument(
+        "--selected-features-json",
+        type=Path,
+        default=repo_root / "hedonic" / "artifacts" / "residential_hedonic_lasso_selected_features.json",
+        help="Path to selected-features JSON from the LASSO/OLS pipeline.",
+    )
+    parser.add_argument(
+        "--coefficients-csv",
+        type=Path,
+        default=repo_root / "hedonic" / "artifacts" / "residential_hedonic_final_ols_coefficients.csv",
+        help="Path to final OLS coefficients CSV from the LASSO/OLS pipeline.",
     )
     parser.add_argument(
         "--merge-csv",
@@ -99,10 +114,23 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Input CSV")
-    args.model_path = require_existing_path(args.model_path, "Model artifact")
+    if args.model_path is not None:
+        args.model_path = args.model_path.expanduser().resolve()
+        if not args.model_path.exists():
+            args.model_path = None
+    if args.selected_features_json is not None:
+        args.selected_features_json = require_existing_path(args.selected_features_json, "Selected features JSON")
+    if args.coefficients_csv is not None:
+        args.coefficients_csv = require_existing_path(args.coefficients_csv, "Coefficients CSV")
     if args.merge_csv is not None:
         args.merge_csv = require_existing_path(args.merge_csv, "Merge CSV")
     args.output_json = args.output_json.expanduser().resolve()
+
+    if args.model_path is None and (args.selected_features_json is None or args.coefficients_csv is None):
+        raise ValueError(
+            "Provide --model-path for legacy validation or both --selected-features-json and "
+            "--coefficients-csv for LASSO/OLS validation."
+        )
 
     if args.k_neighbors < 1:
         raise ValueError("--k-neighbors must be >= 1")
@@ -124,6 +152,74 @@ def _fitted_model_feature_names(model: Any) -> list[str] | None:
         return [str(name) for name in preprocess.feature_names_in_]
 
     return None
+
+
+def _parse_selected_features_json(path: Path) -> list[str]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(raw, dict) and isinstance(raw.get("features"), list):
+        values = raw["features"]
+    elif isinstance(raw, list):
+        values = raw
+    else:
+        raise ValueError("Selected-features JSON must be a list or an object with a 'features' list.")
+
+    parsed = [str(value).strip() for value in values if str(value).strip()]
+    if not parsed:
+        raise ValueError("Selected-features JSON did not contain any features.")
+    return parsed
+
+
+def _build_ols_design_from_selected_features(
+    model_df: pd.DataFrame,
+    selected_features: list[str],
+) -> tuple[pd.DataFrame, list[str], list[str]]:
+    numeric_selected, categorical_selected = infer_feature_types(model_df, selected_features)
+    parts: list[pd.DataFrame] = []
+
+    if numeric_selected:
+        numeric_df = model_df[numeric_selected].apply(pd.to_numeric, errors="coerce")
+        for column in numeric_df.columns:
+            numeric_df[column] = numeric_df[column].fillna(numeric_df[column].median())
+        parts.append(numeric_df.astype(float))
+
+    if categorical_selected:
+        cat_df = model_df[categorical_selected].copy()
+        for column in cat_df.columns:
+            mode = cat_df[column].mode(dropna=True)
+            fill_value = mode.iloc[0] if not mode.empty else "MISSING"
+            cat_df[column] = cat_df[column].fillna(fill_value).astype(str)
+        cat_dummies = pd.get_dummies(cat_df, drop_first=True, dtype=float)
+        parts.append(cat_dummies)
+
+    if not parts:
+        raise ValueError("No design matrix columns could be built from selected features.")
+
+    design_df = pd.concat(parts, axis=1)
+    design_df.insert(0, "const", 1.0)
+    return design_df, numeric_selected, categorical_selected
+
+
+def _predict_from_ols_coefficients(design_df: pd.DataFrame, coefficients_csv: Path) -> tuple[np.ndarray, list[str]]:
+    coef_df = pd.read_csv(coefficients_csv)
+    if "term" not in coef_df.columns or "coefficient_log" not in coef_df.columns:
+        raise ValueError("Coefficients CSV must include 'term' and 'coefficient_log' columns.")
+
+    coef_series = pd.Series(
+        pd.to_numeric(coef_df["coefficient_log"], errors="coerce").to_numpy(dtype=float),
+        index=coef_df["term"].astype(str),
+    )
+    coef_series = coef_series.dropna()
+
+    common_terms = [column for column in design_df.columns if column in coef_series.index]
+    if "const" not in common_terms:
+        common_terms = ["const", *common_terms]
+        if "const" not in coef_series.index:
+            coef_series.loc["const"] = 0.0
+
+    design_used = design_df.reindex(columns=common_terms, fill_value=0.0)
+    coef_used = coef_series.reindex(common_terms, fill_value=0.0)
+    pred_log = design_used.to_numpy(dtype=float) @ coef_used.to_numpy(dtype=float)
+    return pred_log.astype(float), common_terms
 
 
 def _repo_relative_path(path: Path | str, repo_root: Path) -> str:
@@ -750,7 +846,7 @@ def main() -> None:
     print(f"Reading validation data: {args.input_csv}")
     df = pd.read_csv(args.input_csv, low_memory=False)
     df = subset_residential_rows(df, strict=True)
-    model = joblib.load(args.model_path)
+    model = joblib.load(args.model_path) if args.model_path is not None else None
 
     if TARGET_COL not in df.columns:
         raise ValueError(f"Required target column missing: {TARGET_COL}")
@@ -760,50 +856,72 @@ def main() -> None:
             "Use inputs/parcels_preprocessed.csv or another table that retains geometry."
         )
 
-    feature_source = "fitted_model"
-    feature_list = _fitted_model_feature_names(model)
-
-    if feature_list is None:
-        feature_source = "default_feature_set"
-        feature_list = available_features(df, list(DEFAULT_FEATURE_SET))
-        if not feature_list:
-            raise ValueError("No default features were found in the input data.")
+    if model is not None:
+        feature_source = "fitted_model"
+        feature_list = _fitted_model_feature_names(model)
+        if feature_list is None:
+            feature_source = "default_feature_set"
+            feature_list = available_features(df, list(DEFAULT_FEATURE_SET))
+            if not feature_list:
+                raise ValueError("No default features were found in the input data.")
     else:
+        feature_source = "selected_features_json"
+        feature_list = _parse_selected_features_json(args.selected_features_json)
+
+    missing_for_model = [feature for feature in feature_list if feature not in df.columns]
+    if missing_for_model:
+        df = _merge_missing_model_columns(df, args.merge_csv, missing_for_model)
         missing_for_model = [feature for feature in feature_list if feature not in df.columns]
         if missing_for_model:
-            df = _merge_missing_model_columns(df, args.merge_csv, missing_for_model)
-            missing_for_model = [feature for feature in feature_list if feature not in df.columns]
-            if missing_for_model:
-                raise ValueError(
-                    "Input CSV is missing columns required by the fitted model even after "
-                    f"merging {args.merge_csv}: {missing_for_model}"
-                )
+            raise ValueError(
+                "Input CSV is missing columns required by the selected model even after "
+                f"merging {args.merge_csv}: {missing_for_model}"
+            )
 
     numeric_features, categorical_features = infer_feature_types(df, feature_list)
-    model_df = prepare_model_df(
-        df,
-        numeric_features=numeric_features,
-        categorical_features=categorical_features,
-        target_col=TARGET_COL,
-    )
+    if model is not None:
+        model_df = prepare_model_df(
+            df,
+            numeric_features=numeric_features,
+            categorical_features=categorical_features,
+            target_col=TARGET_COL,
+        )
+    else:
+        model_df = prepare_price_per_sqft_model_df(
+            df,
+            numeric_features=numeric_features,
+            categorical_features=categorical_features,
+            target_value_col=TARGET_COL,
+        )
     if model_df.empty:
         raise ValueError("No rows available after model data preparation.")
 
     geometry_series = df.loc[model_df.index, "geometry"]
     X = model_df[[*numeric_features, *categorical_features]]
-    y_level = model_df[TARGET_COL].to_numpy(dtype=float)
-    y_log = np.log1p(y_level)
+    if model is not None:
+        y_level = model_df[TARGET_COL].to_numpy(dtype=float)
+        y_log = np.log1p(y_level)
+    else:
+        y_level = model_df[PRICE_PER_SQFT_COL].to_numpy(dtype=float)
+        y_log = model_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
 
-    preprocess = model.named_steps["preprocess"]
-    design_matrix = _design_matrix(model, X)
-    feature_names = list(preprocess.get_feature_names_out())
-    vif = _vif_from_design_matrix(design_matrix, feature_names)
-    ridge = model.named_steps["ridge"]
-    pred_log = _predict_from_design_matrix(
-        design_matrix=design_matrix,
-        coef=np.asarray(ridge.coef_, dtype=float),
-        intercept=float(ridge.intercept_),
-    )
+    if model is not None:
+        preprocess = model.named_steps["preprocess"]
+        design_matrix = _design_matrix(model, X)
+        feature_names = list(preprocess.get_feature_names_out())
+        vif = _vif_from_design_matrix(design_matrix, feature_names)
+        ridge = model.named_steps["ridge"]
+        pred_log = _predict_from_design_matrix(
+            design_matrix=design_matrix,
+            coef=np.asarray(ridge.coef_, dtype=float),
+            intercept=float(ridge.intercept_),
+        )
+    else:
+        design_df, numeric_features, categorical_features = _build_ols_design_from_selected_features(model_df, feature_list)
+        pred_log, used_terms = _predict_from_ols_coefficients(design_df, args.coefficients_csv)
+        vif_design = design_df.drop(columns=["const"], errors="ignore")
+        vif = _vif_from_design_matrix(vif_design.to_numpy(dtype=float), list(vif_design.columns))
+        design_matrix = vif_design.to_numpy(dtype=float)
     pred_level = np.expm1(np.clip(pred_log, float(np.min(y_log)), float(np.max(y_log))))
 
     if args.residual_scale == "level":
@@ -871,9 +989,12 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     output = {
         "input_csv": _repo_relative_path(args.input_csv, repo_root),
-        "model_path": _repo_relative_path(args.model_path, repo_root),
+        "model_path": _repo_relative_path(args.model_path, repo_root) if args.model_path is not None else None,
+        "selected_features_json": _repo_relative_path(args.selected_features_json, repo_root) if args.selected_features_json is not None else None,
+        "coefficients_csv": _repo_relative_path(args.coefficients_csv, repo_root) if args.coefficients_csv is not None else None,
         "residual_scale": args.residual_scale,
         "feature_source": feature_source,
+        "model_target": PRICE_PER_SQFT_COL if model is None else TARGET_COL,
         "selected_features": feature_list,
         "numeric_features": numeric_features,
         "categorical_features": categorical_features,

@@ -18,6 +18,8 @@ This script implements:
 2. Step B: K-fold cross-validated LASSO (`LassoCV`) to select surviving variables.
 3. Step C: final OLS inference on selected variables with coefficients, standard errors, and p-values.
 
+The dependent variable is now log(price per sqft), and all sqft predictors (`*_SF`, `*_AREA`, and `LIVING_AREA`) are log-transformed before modeling.
+
 Data splitting rule enforced:
 
 - The script first splits data into a Discovery set and an Evaluation set.

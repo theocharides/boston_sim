@@ -20,9 +20,11 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from hedonic.common.modeling_common import (
     DEFAULT_FEATURE_SET,
+    LOG_PRICE_PER_SQFT_COL,
     TARGET_COL,
     available_features,
     infer_feature_types,
+    prepare_price_per_sqft_model_df,
     prepare_model_df,
     subset_residential_rows,
 )
@@ -377,7 +379,10 @@ def _build_statsmodels_design(
 def _final_ols_inference(model_df: pd.DataFrame, selected_features: list[str]) -> tuple[sm.regression.linear_model.RegressionResultsWrapper, pd.DataFrame]:
     numeric_selected, categorical_selected = infer_feature_types(model_df, selected_features)
     X = _build_statsmodels_design(model_df, numeric_selected, categorical_selected)
-    y_log = np.log1p(model_df[TARGET_COL].to_numpy(dtype=float))
+    if LOG_PRICE_PER_SQFT_COL in model_df.columns:
+        y_log = model_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
+    else:
+        y_log = np.log1p(model_df[TARGET_COL].to_numpy(dtype=float))
 
     results = sm.OLS(y_log, X).fit()
 
@@ -413,11 +418,11 @@ def main() -> None:
     feature_list, feature_source = _resolve_feature_set(df, args)
     numeric_features, categorical_features = infer_feature_types(df, feature_list)
 
-    model_df = prepare_model_df(
+    model_df = prepare_price_per_sqft_model_df(
         df,
         numeric_features=numeric_features,
         categorical_features=categorical_features,
-        target_col=TARGET_COL,
+        target_value_col=TARGET_COL,
     )
     if args.sample_size > 0 and args.sample_size < len(model_df):
         model_df = model_df.sample(n=args.sample_size, random_state=args.random_seed)
@@ -433,9 +438,9 @@ def main() -> None:
     evaluation_df = model_df.iloc[evaluation_idx].copy()
 
     X_discovery = discovery_df[[*numeric_features, *categorical_features]]
-    y_discovery_log = np.log1p(discovery_df[TARGET_COL].to_numpy(dtype=float))
+    y_discovery_log = discovery_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
     X_evaluation = evaluation_df[[*numeric_features, *categorical_features]]
-    y_evaluation_log = np.log1p(evaluation_df[TARGET_COL].to_numpy(dtype=float))
+    y_evaluation_log = evaluation_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
 
     # Step A: benchmark OLS on discovery variables, evaluated on untouched evaluation set.
     benchmark_model = _build_benchmark_ols_pipeline(numeric_features, categorical_features)
@@ -462,23 +467,13 @@ def main() -> None:
     selected_features = lasso_selection["selected_features"]
 
     selected_numeric, selected_categorical = infer_feature_types(discovery_df, selected_features)
-    selected_discovery_df = prepare_model_df(
-        discovery_df,
-        numeric_features=selected_numeric,
-        categorical_features=selected_categorical,
-        target_col=TARGET_COL,
-    )
-    selected_evaluation_df = prepare_model_df(
-        evaluation_df,
-        numeric_features=selected_numeric,
-        categorical_features=selected_categorical,
-        target_col=TARGET_COL,
-    )
+    selected_discovery_df = discovery_df[[*selected_numeric, *selected_categorical, LOG_PRICE_PER_SQFT_COL]].copy()
+    selected_evaluation_df = evaluation_df[[*selected_numeric, *selected_categorical, LOG_PRICE_PER_SQFT_COL]].copy()
 
     X_sel_discovery = selected_discovery_df[[*selected_numeric, *selected_categorical]]
-    y_sel_discovery_log = np.log1p(selected_discovery_df[TARGET_COL].to_numpy(dtype=float))
+    y_sel_discovery_log = selected_discovery_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
     X_sel_evaluation = selected_evaluation_df[[*selected_numeric, *selected_categorical]]
-    y_sel_evaluation_log = np.log1p(selected_evaluation_df[TARGET_COL].to_numpy(dtype=float))
+    y_sel_evaluation_log = selected_evaluation_df[LOG_PRICE_PER_SQFT_COL].to_numpy(dtype=float)
 
     selected_benchmark_model = _build_benchmark_ols_pipeline(selected_numeric, selected_categorical)
     selected_benchmark_model.fit(X_sel_discovery, y_sel_discovery_log)
@@ -500,6 +495,10 @@ def main() -> None:
         "rows_evaluation": int(len(evaluation_df)),
         "sample_size": int(args.sample_size),
         "target": TARGET_COL,
+        "model_target": LOG_PRICE_PER_SQFT_COL,
+        "log_transformed_numeric_features": [
+            feature for feature in numeric_features if feature.upper().endswith(("_SF", "_AREA")) or feature.upper() == "LIVING_AREA"
+        ],
         "feature_source": feature_source,
         "candidate_features": feature_list,
         "split_design": {
