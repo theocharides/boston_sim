@@ -18,13 +18,7 @@ This script implements:
 2. Step B: K-fold cross-validated LASSO (`LassoCV`) to select surviving variables.
 3. Step C: final OLS inference on selected variables with coefficients, standard errors, and p-values.
 
-The dependent variable is now log(price per sqft), and all sqft predictors (`*_SF`, `*_AREA`, and `LIVING_AREA`) are log-transformed before modeling.
-
-Data splitting rule enforced:
-
-- The script first splits data into a Discovery set and an Evaluation set.
-- Feature selection (LASSO) and final OLS inference run on Discovery only.
-- Reported model performance is evaluated on the untouched Evaluation set.
+The dependent variable is log(price per sqft), and all sqft predictors (`*_SF`, `*_AREA`, and `LIVING_AREA`) are log-transformed before modeling.
 
 Outputs (in `hedonic/artifacts`):
 
@@ -48,16 +42,4 @@ Fast smoke test:
 
 ```bash
 python -m hedonic.workflow.run_lasso_ols_pipeline --sample-size 5000 --cv-folds 3
-```
-
-Run with an explicit feature list:
-
-```bash
-python -m hedonic.workflow.run_lasso_ols_pipeline --feature-list LAND_SF,INT_COND,LU,neighborhood_walkability,emp_dist_m
-```
-
-Run with a feature spec JSON:
-
-```bash
-python -m hedonic.workflow.run_lasso_ols_pipeline --feature-spec-json path/to/feature_spec.json
 ```

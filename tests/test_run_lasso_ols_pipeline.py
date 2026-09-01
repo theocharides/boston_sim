@@ -29,33 +29,13 @@ class _DummyPipeline:
         return self
 
 
-def test_parse_feature_spec_json_supports_list_and_dict(tmp_path: Path) -> None:
-    list_path = tmp_path / "features_list.json"
-    list_path.write_text(json.dumps(["LAND_SF", "INT_COND"]), encoding="utf-8")
-
-    dict_path = tmp_path / "features_dict.json"
-    dict_path.write_text(json.dumps({"features": ["LAND_SF", "INT_COND"]}), encoding="utf-8")
-
-    assert pipeline._parse_feature_spec_json(list_path) == ["LAND_SF", "INT_COND"]
-    assert pipeline._parse_feature_spec_json(dict_path) == ["LAND_SF", "INT_COND"]
-
-
-def test_parse_feature_spec_json_rejects_invalid_shape(tmp_path: Path) -> None:
-    bad_path = tmp_path / "bad.json"
-    bad_path.write_text(json.dumps({"not_features": []}), encoding="utf-8")
-
-    with pytest.raises(ValueError):
-        pipeline._parse_feature_spec_json(bad_path)
-
-
-def test_resolve_feature_set_uses_feature_list() -> None:
+def test_resolve_feature_set_uses_default_set() -> None:
     df = pd.DataFrame({"LAND_SF": [1], "INT_COND": ["A"]})
-    args = argparse.Namespace(feature_list="LAND_SF,INT_COND", feature_spec_json=None)
 
-    features, source = pipeline._resolve_feature_set(df, args)
+    features, source = pipeline._resolve_feature_set(df)
 
-    assert features == ["LAND_SF", "INT_COND"]
-    assert source == "--feature-list"
+    assert set(features) == {"LAND_SF", "INT_COND"}
+    assert source == "DEFAULT_FEATURE_SET"
 
 
 def test_select_features_with_lasso_honors_min_categorical_dummies(monkeypatch: pytest.MonkeyPatch) -> None:

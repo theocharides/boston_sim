@@ -9,28 +9,32 @@ project parcel table.
 - Builds parcel-level records from assessor rows and parcel geometries.
 - Adds/normalizes core assessor attributes and writes one row per parcel.
 
-2. `steps/add_zoning.py`
+2. `steps/add_2015_data.py`
+- Cleans FY2015 parcel assessor and shape records (collapsing condos).
+- Spatially joins FY2015 land use (`lu_2015`) onto 2025 parcels via maximum intersection area.
+
+3. `steps/add_zoning.py`
 - Spatially joins zoning subdistrict attributes to parcel geometries.
 - Adds fields such as `zoning_use`, `max_far`, `max_height`, and setbacks.
 
-3. `steps/add_income.py`
+4. `steps/add_income.py`
 - Pulls ACS tract-level median household income (`B19013_001E`).
 - Joins tract income to parcel points as `median_hh_income`.
 - Requires a Census API key (`CENSUS_API_KEY` environment variable or `--census-api-key`).
 
-4. `steps/add_neighborhood.py`
+5. `steps/add_neighborhood.py`
 - Spatially joins Boston neighborhood boundaries to parcel points.
 - Adds `neighborhood_name` (and optional neighborhood ID if available).
 
-5. `steps/add_employment_dist.py`
+6. `steps/add_employment_dist.py`
 - Computes straight-line distance in meters from each parcel to the nearest
 	employment center/CBD.
 - Writes `emp_dist_m`.
 
-5. `run_data_prep.py`
+7. `run_data_prep.py`
 - Orchestrator script intended to run preprocessing steps in sequence.
 
-6. `utils.py`
+8. `utils.py`
 - Shared helpers for path checks, parcel CSV geometry loading/saving, and
 	numeric cleanup.
 
@@ -40,6 +44,7 @@ Run these scripts in sequence when building the table manually:
 
 ```bash
 python preprocessing/steps/clean_parcels.py
+python preprocessing/steps/add_2015_data.py
 python preprocessing/steps/add_zoning.py
 python preprocessing/steps/add_neighborhood.py
 python preprocessing/steps/add_income.py

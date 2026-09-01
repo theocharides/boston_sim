@@ -67,7 +67,6 @@ OUTPUT_COLUMN_MAP: dict[str, str] = {
 SOURCE_COLUMNS: list[str] = list(OUTPUT_COLUMN_MAP.keys())
 OUTPUT_COLUMNS: list[str] = [
     *OUTPUT_COLUMN_MAP.values(),
-    "LIVING_AREA_PER_UNIT",
     "geometry",
 ]
 
@@ -79,6 +78,8 @@ KNOWN_PARCEL_FIXES: dict[str, dict[str, float]] = {
 
 # Columns to sum for condos
 SUM_COLUMNS = {
+    "LAND_SF",
+    "NUM_BLDGS",
     "LAND_VALUE",
     "BLDG_VALUE",
     "TOTAL_VALUE",
@@ -96,9 +97,7 @@ SUM_COLUMNS = {
 # Columns not to sum for condos
 MAX_COLUMNS = {
     "CM_ID",
-    "NUM_BLDGS",
     "RES_FLOOR",
-    "LAND_SF",
     "YR_BUILT",
     "YR_REMODEL",
 }
@@ -111,9 +110,6 @@ def normalize_pid(series: pd.Series) -> pd.Series:
 def to_base_pid(pid_norm: pd.Series) -> pd.Series:
     """Convert an account PID to a likely base parcel PID."""
     return pid_norm.str.slice(0, 7) + "000"
-
-
-
 
 
 def parse_args() -> argparse.Namespace:
@@ -243,14 +239,6 @@ def main() -> None:
             for column_name, value in overrides.items():
                 if column_name in result.columns:
                     result.loc[parcel_mask, column_name] = value
-
-    # Derive average living area per unit where both inputs are available and units > 0.
-    living_area = pd.to_numeric(result.get("LIVING_AREA"), errors="coerce")
-    res_units = pd.to_numeric(result.get("RES_UNITS"), errors="coerce")
-    with np.errstate(divide="ignore", invalid="ignore"):
-        living_area_per_unit = living_area / res_units
-    living_area_per_unit = living_area_per_unit.where(res_units > 0)
-    result["LIVING_AREA_PER_UNIT"] = living_area_per_unit
 
     # Store geometry as WKT so parcel geometry is retained in a plain CSV.
     result["geometry"] = result["geometry"].map(

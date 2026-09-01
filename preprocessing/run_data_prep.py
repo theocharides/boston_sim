@@ -75,6 +75,23 @@ def parse_args() -> argparse.Namespace:
         help="Path to Boston neighborhood boundary GeoJSON.",
     )
     parser.add_argument(
+        "--assessors-2015",
+        type=Path,
+        default=repo_root / "preprocessing" / "raw_data" / "boston_parcel_assessors_2015.csv",
+        help="Path to FY2015 assessor CSV.",
+    )
+    parser.add_argument(
+        "--shapes-2015",
+        type=Path,
+        default=repo_root / "preprocessing" / "raw_data" / "boston_parcel_shapes_2015.geojson",
+        help="Path to FY2015 parcel shapes GeoJSON.",
+    )
+    parser.add_argument(
+        "--skip-2015",
+        action="store_true",
+        help="Skip FY2015 land-use spatial join step.",
+    )
+    parser.add_argument(
         "--output-csv",
         type=Path,
         default=repo_root / "inputs" / "parcels_preprocessed.csv",
@@ -136,6 +153,17 @@ def main() -> None:
         output_csv=final_csv,
     )
     
+    # Step 1b: Add FY2015 land use via spatial join
+    if not args.skip_2015 and args.assessors_2015.exists() and args.shapes_2015.exists():
+        run_step(
+            "add_2015_data.py",
+            steps_dir / "add_2015_data.py",
+            parcels_csv=final_csv,
+            assessors_2015=args.assessors_2015,
+            shapes_2015=args.shapes_2015,
+            output_csv=final_csv,
+        )
+
     # Step 2: Add zoning
     run_step(
         "add_zoning.py",

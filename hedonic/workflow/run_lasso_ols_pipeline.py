@@ -46,18 +46,6 @@ def parse_args() -> argparse.Namespace:
         help="Parcel CSV used for modeling.",
     )
     parser.add_argument(
-        "--feature-list",
-        type=str,
-        default=None,
-        help="Optional comma-separated feature list.",
-    )
-    parser.add_argument(
-        "--feature-spec-json",
-        type=Path,
-        default=None,
-        help="Optional feature spec JSON with a top-level list or a 'features' key.",
-    )
-    parser.add_argument(
         "--test-size",
         type=float,
         default=0.2,
@@ -111,8 +99,6 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
     args.input_csv = require_existing_path(args.input_csv, "Input CSV")
-    if args.feature_spec_json is not None:
-        args.feature_spec_json = require_existing_path(args.feature_spec_json, "Feature spec JSON")
     args.output_dir = args.output_dir.expanduser().resolve()
 
     if args.cv_folds < 2:
@@ -131,35 +117,13 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def _parse_feature_spec_json(path: Path) -> list[str]:
-    raw: Any = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(raw, list):
-        values = raw
-    elif isinstance(raw, dict) and isinstance(raw.get("features"), list):
-        values = raw["features"]
-    else:
-        raise ValueError("Feature spec JSON must be a list or an object with a 'features' list.")
-
-    parsed = [str(value).strip() for value in values if str(value).strip()]
-    if not parsed:
-        raise ValueError("Feature spec JSON did not contain any feature names.")
-    return parsed
-
-
-def _resolve_feature_set(df: pd.DataFrame, args: argparse.Namespace) -> tuple[list[str], str]:
-    if args.feature_list:
-        selected = [value.strip() for value in args.feature_list.split(",") if value.strip()]
-        source = "--feature-list"
-    elif args.feature_spec_json is not None:
-        selected = _parse_feature_spec_json(args.feature_spec_json)
-        source = f"--feature-spec-json ({args.feature_spec_json})"
-    else:
-        selected = list(DEFAULT_FEATURE_SET)
-        source = "DEFAULT_FEATURE_SET"
+def _resolve_feature_set(df: pd.DataFrame) -> tuple[list[str], str]:
+    selected = list(DEFAULT_FEATURE_SET)
+    source = "DEFAULT_FEATURE_SET"
 
     existing = available_features(df, selected)
     if not existing:
-        raise ValueError("None of the requested features exist in the input data.")
+        raise ValueError("None of the default features exist in the input data.")
 
     missing = [feature for feature in selected if feature not in existing]
     if missing:
@@ -415,7 +379,7 @@ def main() -> None:
     if TARGET_COL not in df.columns:
         raise ValueError(f"Required target column missing: {TARGET_COL}")
 
-    feature_list, feature_source = _resolve_feature_set(df, args)
+    feature_list, feature_source = _resolve_feature_set(df)
     numeric_features, categorical_features = infer_feature_types(df, feature_list)
 
     model_df = prepare_price_per_sqft_model_df(
